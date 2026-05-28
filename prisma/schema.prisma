@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String               @id @default(cuid())
+  name       String
+  email      String               @unique
+  password   String
+  role       UserRole             @default(EMPLOYEE)
+  active     Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  avatar     String?
+  phone      String?
+  sectorId   String?
+  accounts   Account[]
+  executions ChecklistExecution[]
+  sessions   Session[]
+  sector     Sector?              @relation(fields: [sectorId], references: [id])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Sector {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  checklists  Checklist[]
+  users       User[]
+}
+
+model Checklist {
+  id          String               @id @default(cuid())
+  title       String
+  description String?
+  frequency   Frequency
+  sectorId    String
+  active      Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  sector      Sector               @relation(fields: [sectorId], references: [id])
+  executions  ChecklistExecution[]
+  items       ChecklistItem[]
+}
+
+model ChecklistItem {
+  id          String                   @id @default(cuid())
+  checklistId String
+  title       String
+  required    Boolean                  @default(true)
+  order       Int
+  createdAt   DateTime                 @default(now())
+  executions  ChecklistExecutionItem[]
+  checklist   Checklist                @relation(fields: [checklistId], references: [id])
+}
+
+model ChecklistExecution {
+  id          String                   @id @default(cuid())
+  checklistId String
+  userId      String
+  status      ExecutionStatus          @default(IN_PROGRESS)
+  startedAt   DateTime                 @default(now())
+  finishedAt  DateTime?
+  checklist   Checklist                @relation(fields: [checklistId], references: [id])
+  user        User                     @relation(fields: [userId], references: [id])
+  items       ChecklistExecutionItem[]
+}
+
+model ChecklistExecutionItem {
+  id          String             @id @default(cuid())
+  executionId String
+  itemId      String
+  checked     Boolean            @default(false)
+  observation String?
+  execution   ChecklistExecution @relation(fields: [executionId], references: [id])
+  item        ChecklistItem      @relation(fields: [itemId], references: [id])
+}
+
+enum UserRole {
+  ADMIN
+  SUPERVISOR
+  EMPLOYEE
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ExecutionStatus {
+  IN_PROGRESS
+  COMPLETED
+  PENDING
+}
