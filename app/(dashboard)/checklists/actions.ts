@@ -59,6 +59,7 @@ export async function getChecklistsAction() {
 
             include: {
                 sector: true,
+                createdBy: true,
             },
 
             orderBy: {

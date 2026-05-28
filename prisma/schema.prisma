@@ -19,9 +19,13 @@ model User {
   avatar     String?
   phone      String?
   sectorId   String?
+
   accounts   Account[]
   executions ChecklistExecution[]
   sessions   Session[]
+
+  createdChecklists Checklist[]
+
   sector     Sector?              @relation(fields: [sectorId], references: [id])
 }
 
@@ -76,10 +80,16 @@ model Checklist {
   description String?
   frequency   Frequency
   sectorId    String
+
   active      Boolean              @default(true)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
+
   sector      Sector               @relation(fields: [sectorId], references: [id])
+
+  createdById String?
+  createdBy   User? @relation(fields: [createdById], references: [id])
+
   executions  ChecklistExecution[]
   items       ChecklistItem[]
 }

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
+import { AuthProvider } from "@/components/providers/session-provider"
 
 export default async function Layout({
     children,
@@ -16,8 +17,10 @@ export default async function Layout({
     }
 
     return (
-        <DashboardLayout>
-            {children}
-        </DashboardLayout>
+        <AuthProvider>
+            <DashboardLayout>
+                {children}
+            </DashboardLayout>
+        </AuthProvider>
     )
 }

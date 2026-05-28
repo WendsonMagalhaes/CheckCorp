@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 
 import {
     CreateChecklistData,
@@ -9,12 +10,20 @@ export async function createChecklistService(
     data: CreateChecklistData
 ) {
 
+    const session = await auth()
+
+    if (!session?.user?.id) {
+        throw new Error("Usuário não autenticado")
+    }
+
     return prisma.checklist.create({
         data: {
             title: data.title,
             description: data.description,
             frequency: data.frequency,
             sectorId: data.sectorId,
+
+            createdById: session.user.id,
         },
     })
 }

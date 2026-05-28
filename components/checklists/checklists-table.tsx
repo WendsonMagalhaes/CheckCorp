@@ -8,6 +8,10 @@ import {
 } from "react"
 
 import {
+    useSession,
+} from "next-auth/react"
+
+import {
     ClipboardList,
     Pencil,
     Trash2,
@@ -37,6 +41,8 @@ interface ChecklistData {
 
     active: boolean
 
+    createdById?: string | null
+
     sector: {
         id: string
         name: string
@@ -44,6 +50,9 @@ interface ChecklistData {
 }
 
 export function ChecklistsTable() {
+
+    const { data: session } =
+        useSession()
 
     const [
         checklists,
@@ -249,228 +258,239 @@ export function ChecklistsTable() {
                                 checklists.map(
                                     (
                                         checklist
-                                    ) => (
-                                        <tr
-                                            key={
-                                                checklist.id
-                                            }
-                                            className="
-                                                border-b
-                                                border-border
-                                                hover:bg-muted/40
-                                                transition
-                                            "
-                                        >
+                                    ) => {
 
-                                            {/* CHECKLIST */}
+                                        const isOwner =
+                                            checklist.createdById ===
+                                            session?.user?.id
 
-                                            <td className="
-                                                px-6
-                                                py-5
-                                            ">
-                                                <Link
-                                                    href={`/checklists/${checklist.id}/executar`}
-                                                    className="
-                                                        flex
-                                                        items-center
-                                                        gap-4
-                                                        group
-                                                    "
-                                                >
-                                                    <div className="
-                                                        w-12
-                                                        h-12
-                                                        rounded-2xl
-                                                        bg-primary/15
-                                                        text-primary
-                                                        flex
-                                                        items-center
-                                                        justify-center
-                                                        transition
-                                                        group-hover:bg-primary
-                                                        group-hover:text-white
-                                                    ">
-                                                        <ClipboardList
-                                                            size={20}
-                                                        />
-                                                    </div>
+                                        return (
+                                            <tr
+                                                key={
+                                                    checklist.id
+                                                }
+                                                className="
+                                                    border-b
+                                                    border-border
+                                                    hover:bg-muted/40
+                                                    transition
+                                                "
+                                            >
 
-                                                    <div>
-                                                        <h4 className="
-                                                            font-bold
+                                                {/* CHECKLIST */}
+
+                                                <td className="
+                                                    px-6
+                                                    py-5
+                                                ">
+                                                    <Link
+                                                        href={`/checklists/${checklist.id}/executar`}
+                                                        className="
+                                                            flex
+                                                            items-center
+                                                            gap-4
+                                                            group
+                                                        "
+                                                    >
+                                                        <div className="
+                                                            w-12
+                                                            h-12
+                                                            rounded-2xl
+                                                            bg-primary/15
+                                                            text-primary
+                                                            flex
+                                                            items-center
+                                                            justify-center
                                                             transition
-                                                            group-hover:text-primary
+                                                            group-hover:bg-primary
+                                                            group-hover:text-white
                                                         ">
-                                                            {
-                                                                checklist.title
-                                                            }
-                                                        </h4>
+                                                            <ClipboardList
+                                                                size={20}
+                                                            />
+                                                        </div>
 
-                                                        <p className="
-                                                            text-sm
-                                                            text-muted-foreground
-                                                            mt-1
-                                                        ">
-                                                            {
-                                                                checklist.description ||
-                                                                "Sem descrição"
-                                                            }
-                                                        </p>
+                                                        <div>
+                                                            <h4 className="
+                                                                font-bold
+                                                                transition
+                                                                group-hover:text-primary
+                                                            ">
+                                                                {
+                                                                    checklist.title
+                                                                }
+                                                            </h4>
+
+                                                            <p className="
+                                                                text-sm
+                                                                text-muted-foreground
+                                                                mt-1
+                                                            ">
+                                                                {
+                                                                    checklist.description ||
+                                                                    "Sem descrição"
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                    </Link>
+                                                </td>
+
+                                                {/* SETOR */}
+
+                                                <td className="
+                                                    px-6
+                                                    py-5
+                                                ">
+                                                    <div className="
+                                                        inline-flex
+                                                        items-center
+                                                        px-3
+                                                        py-1.5
+                                                        rounded-full
+                                                        bg-secondary
+                                                        text-secondary-foreground
+                                                        text-sm
+                                                        font-medium
+                                                    ">
+                                                        {
+                                                            checklist
+                                                                .sector
+                                                                .name
+                                                        }
                                                     </div>
-                                                </Link>
-                                            </td>
+                                                </td>
 
-                                            {/* SETOR */}
+                                                {/* FREQUÊNCIA */}
 
-                                            <td className="
-                                                px-6
-                                                py-5
-                                            ">
-                                                <div className="
-                                                    inline-flex
-                                                    items-center
-                                                    px-3
-                                                    py-1.5
-                                                    rounded-full
-                                                    bg-secondary
-                                                    text-secondary-foreground
-                                                    text-sm
-                                                    font-medium
+                                                <td className="
+                                                    px-6
+                                                    py-5
+                                                ">
+                                                    <span className="
+                                                        text-sm
+                                                        font-semibold
+                                                    ">
+                                                        {
+                                                            getFrequencyLabel(
+                                                                checklist.frequency
+                                                            )
+                                                        }
+                                                    </span>
+                                                </td>
+
+                                                {/* STATUS */}
+
+                                                <td className="
+                                                    px-6
+                                                    py-5
+                                                ">
+                                                    <span className={`
+                                                        inline-flex
+                                                        items-center
+                                                        px-3
+                                                        py-1.5
+                                                        rounded-full
+                                                        text-sm
+                                                        font-semibold
+
+                                                        ${checklist.active
+                                                            ? "bg-primary/15 text-primary"
+                                                            : "bg-destructive/15 text-destructive"
+                                                        }
+                                                    `}>
+                                                        {
+                                                            checklist.active
+                                                                ? "Ativo"
+                                                                : "Inativo"
+                                                        }
+                                                    </span>
+                                                </td>
+
+                                                {/* AÇÕES */}
+
+                                                <td className="
+                                                    px-6
+                                                    py-5
                                                 ">
                                                     {
-                                                        checklist
-                                                            .sector
-                                                            .name
-                                                    }
-                                                </div>
-                                            </td>
+                                                        isOwner && (
+                                                            <div className="
+                                                                flex
+                                                                justify-end
+                                                                gap-2
+                                                            ">
 
-                                            {/* FREQUÊNCIA */}
+                                                                {/* EDITAR */}
 
-                                            <td className="
-                                                px-6
-                                                py-5
-                                            ">
-                                                <span className="
-                                                    text-sm
-                                                    font-semibold
-                                                ">
-                                                    {
-                                                        getFrequencyLabel(
-                                                            checklist.frequency
+                                                                <button
+                                                                    onClick={() => {
+
+                                                                        setSelectedChecklist(
+                                                                            checklist
+                                                                        )
+
+                                                                        setOpenEditModal(
+                                                                            true
+                                                                        )
+                                                                    }}
+                                                                    className="
+                                                                        w-10
+                                                                        h-10
+                                                                        rounded-xl
+                                                                        border
+                                                                        border-border
+                                                                        flex
+                                                                        items-center
+                                                                        justify-center
+                                                                        hover:bg-muted
+                                                                        transition
+                                                                    "
+                                                                >
+                                                                    <Pencil
+                                                                        size={18}
+                                                                    />
+                                                                </button>
+
+                                                                {/* EXCLUIR */}
+
+                                                                <button
+                                                                    onClick={() => {
+
+                                                                        setSelectedChecklistId(
+                                                                            checklist.id
+                                                                        )
+
+                                                                        setOpenDeleteDialog(
+                                                                            true
+                                                                        )
+                                                                    }}
+                                                                    className="
+                                                                        w-10
+                                                                        h-10
+                                                                        rounded-xl
+                                                                        bg-destructive/10
+                                                                        text-destructive
+                                                                        flex
+                                                                        items-center
+                                                                        justify-center
+                                                                        hover:bg-destructive
+                                                                        hover:text-white
+                                                                        transition
+                                                                    "
+                                                                >
+                                                                    <Trash2
+                                                                        size={18}
+                                                                    />
+                                                                </button>
+
+                                                            </div>
                                                         )
                                                     }
-                                                </span>
-                                            </td>
+                                                </td>
 
-                                            {/* STATUS */}
-
-                                            <td className="
-                                                px-6
-                                                py-5
-                                            ">
-                                                <span className={`
-                                                    inline-flex
-                                                    items-center
-                                                    px-3
-                                                    py-1.5
-                                                    rounded-full
-                                                    text-sm
-                                                    font-semibold
-
-                                                    ${checklist.active
-                                                        ? "bg-primary/15 text-primary"
-                                                        : "bg-destructive/15 text-destructive"
-                                                    }
-                                                `}>
-                                                    {
-                                                        checklist.active
-                                                            ? "Ativo"
-                                                            : "Inativo"
-                                                    }
-                                                </span>
-                                            </td>
-
-                                            {/* AÇÕES */}
-
-                                            <td className="
-                                                px-6
-                                                py-5
-                                            ">
-                                                <div className="
-                                                    flex
-                                                    justify-end
-                                                    gap-2
-                                                ">
-
-                                                    {/* EDITAR */}
-
-                                                    <button
-                                                        onClick={() => {
-
-                                                            setSelectedChecklist(
-                                                                checklist
-                                                            )
-
-                                                            setOpenEditModal(
-                                                                true
-                                                            )
-                                                        }}
-                                                        className="
-                                                            w-10
-                                                            h-10
-                                                            rounded-xl
-                                                            border
-                                                            border-border
-                                                            flex
-                                                            items-center
-                                                            justify-center
-                                                            hover:bg-muted
-                                                            transition
-                                                        "
-                                                    >
-                                                        <Pencil
-                                                            size={18}
-                                                        />
-                                                    </button>
-
-                                                    {/* EXCLUIR */}
-
-                                                    <button
-                                                        onClick={() => {
-
-                                                            setSelectedChecklistId(
-                                                                checklist.id
-                                                            )
-
-                                                            setOpenDeleteDialog(
-                                                                true
-                                                            )
-                                                        }}
-                                                        className="
-                                                            w-10
-                                                            h-10
-                                                            rounded-xl
-                                                            bg-destructive/10
-                                                            text-destructive
-                                                            flex
-                                                            items-center
-                                                            justify-center
-                                                            hover:bg-destructive
-                                                            hover:text-white
-                                                            transition
-                                                        "
-                                                    >
-                                                        <Trash2
-                                                            size={18}
-                                                        />
-                                                    </button>
-
-                                                </div>
-                                            </td>
-
-                                        </tr>
-                                    )
+                                            </tr>
+                                        )
+                                    }
                                 )
                             }
                         </tbody>
@@ -490,213 +510,224 @@ export function ChecklistsTable() {
                     checklists.map(
                         (
                             checklist
-                        ) => (
-                            <Link
-                                href={`/checklists/${checklist.id}/executar`}
-                                key={
-                                    checklist.id
-                                }
-                                className="
-                                    bg-card
-                                    border
-                                    border-border
-                                    rounded-3xl
-                                    p-5
-                                    transition
-                                    hover:border-primary/30
-                                "
-                            >
+                        ) => {
 
-                                <div className="
-                                    flex
-                                    items-start
-                                    justify-between
-                                    gap-4
-                                ">
+                            const isOwner =
+                                checklist.createdById ===
+                                session?.user?.id
+
+                            return (
+                                <Link
+                                    href={`/checklists/${checklist.id}/executar`}
+                                    key={
+                                        checklist.id
+                                    }
+                                    className="
+                                        bg-card
+                                        border
+                                        border-border
+                                        rounded-3xl
+                                        p-5
+                                        transition
+                                        hover:border-primary/30
+                                    "
+                                >
 
                                     <div className="
                                         flex
+                                        items-start
+                                        justify-between
                                         gap-4
                                     ">
 
                                         <div className="
-                                            w-12
-                                            h-12
-                                            rounded-2xl
-                                            bg-primary/15
-                                            text-primary
                                             flex
-                                            items-center
-                                            justify-center
+                                            gap-4
                                         ">
-                                            <ClipboardList
-                                                size={20}
-                                            />
+
+                                            <div className="
+                                                w-12
+                                                h-12
+                                                rounded-2xl
+                                                bg-primary/15
+                                                text-primary
+                                                flex
+                                                items-center
+                                                justify-center
+                                            ">
+                                                <ClipboardList
+                                                    size={20}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <h4 className="
+                                                    font-bold
+                                                ">
+                                                    {
+                                                        checklist.title
+                                                    }
+                                                </h4>
+
+                                                <p className="
+                                                    text-sm
+                                                    text-muted-foreground
+                                                    mt-1
+                                                ">
+                                                    {
+                                                        checklist.description ||
+                                                        "Sem descrição"
+                                                    }
+                                                </p>
+                                            </div>
+
                                         </div>
 
-                                        <div>
-                                            <h4 className="
-                                                font-bold
-                                            ">
-                                                {
-                                                    checklist.title
-                                                }
-                                            </h4>
+                                        <span className={`
+                                            inline-flex
+                                            items-center
+                                            px-3
+                                            py-1
+                                            rounded-full
+                                            text-xs
+                                            font-bold
 
-                                            <p className="
-                                                text-sm
-                                                text-muted-foreground
-                                                mt-1
-                                            ">
-                                                {
-                                                    checklist.description ||
-                                                    "Sem descrição"
-                                                }
-                                            </p>
-                                        </div>
+                                            ${checklist.active
+                                                ? "bg-primary/15 text-primary"
+                                                : "bg-destructive/15 text-destructive"
+                                            }
+                                        `}>
+                                            {
+                                                checklist.active
+                                                    ? "Ativo"
+                                                    : "Inativo"
+                                            }
+                                        </span>
 
-                                    </div>
-
-                                    <span className={`
-                                        inline-flex
-                                        items-center
-                                        px-3
-                                        py-1
-                                        rounded-full
-                                        text-xs
-                                        font-bold
-
-                                        ${checklist.active
-                                            ? "bg-primary/15 text-primary"
-                                            : "bg-destructive/15 text-destructive"
-                                        }
-                                    `}>
-                                        {
-                                            checklist.active
-                                                ? "Ativo"
-                                                : "Inativo"
-                                        }
-                                    </span>
-
-                                </div>
-
-                                <div className="
-                                    mt-5
-                                    flex
-                                    flex-wrap
-                                    gap-2
-                                ">
-
-                                    <div className="
-                                        px-3
-                                        py-1.5
-                                        rounded-full
-                                        bg-secondary
-                                        text-secondary-foreground
-                                        text-sm
-                                        font-medium
-                                    ">
-                                        {
-                                            checklist
-                                                .sector
-                                                .name
-                                        }
                                     </div>
 
                                     <div className="
-                                        px-3
-                                        py-1.5
-                                        rounded-full
-                                        border
-                                        border-border
-                                        text-sm
-                                        font-medium
-                                    ">
-                                        {
-                                            getFrequencyLabel(
-                                                checklist.frequency
-                                            )
-                                        }
-                                    </div>
-
-                                </div>
-
-                                {/* AÇÕES */}
-
-                                <div
-                                    onClick={(e) =>
-                                        e.preventDefault()
-                                    }
-                                    className="
                                         mt-5
                                         flex
-                                        justify-end
+                                        flex-wrap
                                         gap-2
-                                    "
-                                >
+                                    ">
 
-                                    {/* EDITAR */}
-
-                                    <button
-                                        onClick={() => {
-
-                                            setSelectedChecklist(
+                                        <div className="
+                                            px-3
+                                            py-1.5
+                                            rounded-full
+                                            bg-secondary
+                                            text-secondary-foreground
+                                            text-sm
+                                            font-medium
+                                        ">
+                                            {
                                                 checklist
-                                            )
+                                                    .sector
+                                                    .name
+                                            }
+                                        </div>
 
-                                            setOpenEditModal(
-                                                true
-                                            )
-                                        }}
-                                        className="
-                                            w-11
-                                            h-11
-                                            rounded-2xl
+                                        <div className="
+                                            px-3
+                                            py-1.5
+                                            rounded-full
                                             border
                                             border-border
-                                            flex
-                                            items-center
-                                            justify-center
-                                        "
-                                    >
-                                        <Pencil
-                                            size={18}
-                                        />
-                                    </button>
+                                            text-sm
+                                            font-medium
+                                        ">
+                                            {
+                                                getFrequencyLabel(
+                                                    checklist.frequency
+                                                )
+                                            }
+                                        </div>
 
-                                    {/* EXCLUIR */}
+                                    </div>
 
-                                    <button
-                                        onClick={() => {
+                                    {/* AÇÕES */}
 
-                                            setSelectedChecklistId(
-                                                checklist.id
-                                            )
+                                    {
+                                        isOwner && (
+                                            <div
+                                                onClick={(e) =>
+                                                    e.preventDefault()
+                                                }
+                                                className="
+                                                    mt-5
+                                                    flex
+                                                    justify-end
+                                                    gap-2
+                                                "
+                                            >
 
-                                            setOpenDeleteDialog(
-                                                true
-                                            )
-                                        }}
-                                        className="
-                                            w-11
-                                            h-11
-                                            rounded-2xl
-                                            bg-destructive/10
-                                            text-destructive
-                                            flex
-                                            items-center
-                                            justify-center
-                                        "
-                                    >
-                                        <Trash2
-                                            size={18}
-                                        />
-                                    </button>
+                                                {/* EDITAR */}
 
-                                </div>
+                                                <button
+                                                    onClick={() => {
 
-                            </Link>
-                        )
+                                                        setSelectedChecklist(
+                                                            checklist
+                                                        )
+
+                                                        setOpenEditModal(
+                                                            true
+                                                        )
+                                                    }}
+                                                    className="
+                                                        w-11
+                                                        h-11
+                                                        rounded-2xl
+                                                        border
+                                                        border-border
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                    "
+                                                >
+                                                    <Pencil
+                                                        size={18}
+                                                    />
+                                                </button>
+
+                                                {/* EXCLUIR */}
+
+                                                <button
+                                                    onClick={() => {
+
+                                                        setSelectedChecklistId(
+                                                            checklist.id
+                                                        )
+
+                                                        setOpenDeleteDialog(
+                                                            true
+                                                        )
+                                                    }}
+                                                    className="
+                                                        w-11
+                                                        h-11
+                                                        rounded-2xl
+                                                        bg-destructive/10
+                                                        text-destructive
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                    "
+                                                >
+                                                    <Trash2
+                                                        size={18}
+                                                    />
+                                                </button>
+
+                                            </div>
+                                        )
+                                    }
+
+                                </Link>
+                            )
+                        }
                     )
                 }
             </div>

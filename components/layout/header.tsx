@@ -10,6 +10,10 @@ import {
     usePathname,
 } from "next/navigation"
 
+import {
+    useSession,
+} from "next-auth/react"
+
 interface HeaderProps {
     onMenuClick: () => void
 }
@@ -21,16 +25,21 @@ export function Header({
     const pathname =
         usePathname()
 
+    const {
+        data: session,
+    } = useSession()
+
+    const user =
+        session?.user
+
     function getPageTitle() {
 
-        // CHECKLIST EXECUTION
         if (
             pathname.includes("/executar")
         ) {
             return "Execução do Checklist"
         }
 
-        // ROTAS
         const routes: Record<string, string> = {
 
             "/dashboard":
@@ -49,12 +58,10 @@ export function Header({
                 "Relatórios",
         }
 
-        // MATCH DIRETO
         if (routes[pathname]) {
             return routes[pathname]
         }
 
-        // FALLBACK
         return "Dashboard"
     }
 
@@ -96,21 +103,16 @@ export function Header({
             className="
                 h-[72px]
                 lg:h-[80px]
-
                 bg-card/80
                 backdrop-blur-xl
-
                 border-b
                 border-border
-
                 flex
                 items-center
                 justify-between
-
                 px-4
                 sm:px-6
                 lg:px-8
-
                 sticky
                 top-0
                 z-30
@@ -127,25 +129,18 @@ export function Header({
                 "
             >
 
-                {/* MOBILE MENU */}
-
                 <button
                     onClick={onMenuClick}
                     className="
                         lg:hidden
-
                         w-10
                         h-10
-
                         rounded-xl
-
                         border
                         border-border
-
                         flex
                         items-center
                         justify-center
-
                         bg-background
                     "
                 >
@@ -158,7 +153,6 @@ export function Header({
                         className="
                             text-2xl
                             lg:text-3xl
-
                             font-black
                             tracking-tight
                         "
@@ -170,10 +164,8 @@ export function Header({
                         className="
                             hidden
                             sm:block
-
                             text-sm
                             text-muted-foreground
-
                             mt-1
                         "
                     >
@@ -201,20 +193,14 @@ export function Header({
                     className="
                         hidden
                         xl:flex
-
                         items-center
                         gap-3
-
                         h-11
                         w-[280px]
-
                         px-4
-
                         rounded-2xl
-
                         border
                         border-border
-
                         bg-background
                     "
                 >
@@ -244,20 +230,14 @@ export function Header({
                 <button
                     className="
                         relative
-
                         w-10
                         h-10
-
                         lg:w-11
                         lg:h-11
-
                         rounded-2xl
-
                         bg-background
-
                         border
                         border-border
-
                         flex
                         items-center
                         justify-center
@@ -271,10 +251,8 @@ export function Header({
                             absolute
                             top-2
                             right-2
-
                             w-2
                             h-2
-
                             rounded-full
                             bg-primary
                         "
@@ -296,20 +274,19 @@ export function Header({
                         className="
                             w-10
                             h-10
-
                             rounded-2xl
-
                             bg-primary
                             text-primary-foreground
-
                             flex
                             items-center
                             justify-center
-
                             font-black
                         "
                     >
-                        W
+                        {
+                            user?.name?.charAt(0)
+                                .toUpperCase() || "U"
+                        }
                     </div>
 
                     <div className="
@@ -323,17 +300,13 @@ export function Header({
                                 text-sm
                             "
                         >
-                            Wendson
+                            {
+                                user?.name ||
+                                "Usuário"
+                            }
                         </p>
 
-                        <span
-                            className="
-                                text-xs
-                                text-muted-foreground
-                            "
-                        >
-                            Administrador
-                        </span>
+
 
                     </div>
 
