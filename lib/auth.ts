@@ -13,6 +13,7 @@ export const {
     signOut,
     auth,
 } = NextAuth({
+
     adapter: PrismaAdapter(prisma),
 
     session: {
@@ -21,6 +22,7 @@ export const {
 
     providers: [
         Credentials({
+
             credentials: {
                 email: {},
                 password: {},
@@ -28,34 +30,36 @@ export const {
 
             async authorize(credentials) {
 
-                console.log(credentials)
-
-                if (!credentials?.email || !credentials?.password) {
+                if (
+                    !credentials?.email ||
+                    !credentials?.password
+                ) {
                     return null
                 }
 
-                const user = await prisma.user.findUnique({
-                    where: {
-                        email: credentials.email as string,
-                    },
-                })
+                const user =
+                    await prisma.user.findUnique({
+                        where: {
+                            email:
+                                credentials.email as string,
+                        },
 
-                console.log(user)
+                        include: {
+                            supervisedSectors: true,
+                        },
+                    })
 
                 if (!user) {
-                    console.log("Usuário não encontrado")
                     return null
                 }
 
-                const passwordMatch = await bcrypt.compare(
-                    credentials.password as string,
-                    user.password
-                )
-
-                console.log(passwordMatch)
+                const passwordMatch =
+                    await bcrypt.compare(
+                        credentials.password as string,
+                        user.password
+                    )
 
                 if (!passwordMatch) {
-                    console.log("Senha inválida")
                     return null
                 }
 
@@ -63,7 +67,16 @@ export const {
                     id: user.id,
                     name: user.name,
                     email: user.email,
+
                     role: user.role,
+
+                    sectorId:
+                        user.sectorId,
+
+                    supervisedSectorIds:
+                        user.supervisedSectors.map(
+                            (sector) => sector.id
+                        ),
                 }
             },
         }),
@@ -71,20 +84,46 @@ export const {
 
     callbacks: {
 
-        async jwt({ token, user }) {
+        async jwt({
+            token,
+            user,
+        }) {
 
             if (user) {
-                token.role = user.role
+
+                token.role =
+                    user.role
+
+                token.sectorId =
+                    user.sectorId
+
+                token.supervisedSectorIds =
+                    user.supervisedSectorIds || []
             }
 
             return token
         },
 
-        async session({ session, token }) {
+        async session({
+            session,
+            token,
+        }) {
 
             if (session.user) {
-                session.user.id = token.sub as string
-                session.user.role = token.role as string
+
+                session.user.id =
+                    token.sub as string
+
+                session.user.role =
+                    token.role as string
+
+                session.user.sectorId =
+                    token.sectorId as string | null
+
+                session.user.supervisedSectorIds =
+                    (
+                        token.supervisedSectorIds as string[]
+                    ) || []
             }
 
             return session
@@ -95,5 +134,6 @@ export const {
         signIn: "/login",
     },
 
-    secret: process.env.AUTH_SECRET,
+    secret:
+        process.env.AUTH_SECRET,
 })

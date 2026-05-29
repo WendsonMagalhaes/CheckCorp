@@ -120,8 +120,8 @@ export function EditChecklistModal({
     const userRole =
         session?.user?.role
 
-    const userSectorId =
-        session?.user?.sectorId
+    const supervisedSectorIds =
+        session?.user?.supervisedSectorIds || []
 
     const isEmployee =
         userRole === "EMPLOYEE"
@@ -163,7 +163,9 @@ export function EditChecklistModal({
                 const usersResponse =
                     await getUsersAction()
 
+                // =====================
                 // ADMIN
+                // =====================
 
                 if (
                     userRole === "ADMIN"
@@ -180,7 +182,9 @@ export function EditChecklistModal({
                     return
                 }
 
+                // =====================
                 // SUPERVISOR
+                // =====================
 
                 if (
                     userRole ===
@@ -192,8 +196,9 @@ export function EditChecklistModal({
                             (
                                 sector: SectorData
                             ) =>
-                                sector.id ===
-                                userSectorId
+                                supervisedSectorIds.includes(
+                                    sector.id
+                                )
                         )
 
                     const filteredUsers =
@@ -201,8 +206,10 @@ export function EditChecklistModal({
                             (
                                 user: UserData
                             ) =>
-                                user.sectorId ===
-                                userSectorId
+                                user.sectorId &&
+                                supervisedSectorIds.includes(
+                                    user.sectorId
+                                )
                         )
 
                     setSectors(
@@ -216,7 +223,9 @@ export function EditChecklistModal({
                     return
                 }
 
+                // =====================
                 // EMPLOYEE
+                // =====================
 
                 if (
                     userRole ===
@@ -256,7 +265,7 @@ export function EditChecklistModal({
     }, [
         open,
         userRole,
-        userSectorId,
+        supervisedSectorIds,
         session?.user?.id,
     ])
 
@@ -302,7 +311,9 @@ export function EditChecklistModal({
         data: UpdateChecklistData
     ) {
 
-        // EMPLOYEE NÃO ALTERA DESTINO
+        // =====================
+        // EMPLOYEE
+        // =====================
 
         if (isEmployee) {
 
@@ -314,7 +325,8 @@ export function EditChecklistModal({
 
         } else {
 
-            // LIMPA O CAMPO NÃO UTILIZADO
+            // LIMPA O CAMPO
+            // NÃO UTILIZADO
 
             if (
                 targetType ===
@@ -744,6 +756,29 @@ export function EditChecklistModal({
                         )
                     }
 
+                    {/* ERRO */}
+
+                    {
+                        (
+                            errors.sectorId ||
+                            errors.assignedUserId
+                        ) && (
+                            <span className="
+                                text-sm
+                                text-destructive
+                            ">
+                                {
+                                    errors
+                                        .sectorId
+                                        ?.message ||
+                                    errors
+                                        .assignedUserId
+                                        ?.message
+                                }
+                            </span>
+                        )
+                    }
+
                     {/* ACTIVE */}
 
                     <label className="
@@ -768,29 +803,6 @@ export function EditChecklistModal({
                         Checklist ativo
 
                     </label>
-
-                    {/* ERRO */}
-
-                    {
-                        (
-                            errors.sectorId ||
-                            errors.assignedUserId
-                        ) && (
-                            <span className="
-                                text-sm
-                                text-destructive
-                            ">
-                                {
-                                    errors
-                                        .sectorId
-                                        ?.message ||
-                                    errors
-                                        .assignedUserId
-                                        ?.message
-                                }
-                            </span>
-                        )
-                    }
 
                     {/* ACTIONS */}
 

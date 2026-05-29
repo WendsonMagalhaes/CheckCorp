@@ -4,9 +4,6 @@ import { prisma } from "@/lib/prisma"
 
 import {
     CreateUserData,
-} from "@/validations/user-schema"
-
-import {
     UpdateUserData,
 } from "@/validations/user-schema"
 
@@ -22,6 +19,7 @@ export async function createUserService(
         })
 
     if (existingUser) {
+
         throw new Error(
             "Usuário já existe"
         )
@@ -35,8 +33,31 @@ export async function createUserService(
 
     return prisma.user.create({
         data: {
-            ...data,
+
+            name: data.name,
+
+            email: data.email,
+
             password: passwordHash,
+
+            role: data.role,
+
+            // SETOR PRINCIPAL
+            sectorId:
+                data.sectorId || null,
+
+            // SETORES SUPERVISIONADOS
+            supervisedSectors:
+                data.supervisedSectorIds?.length
+                    ? {
+                        connect:
+                            data.supervisedSectorIds.map(
+                                sectorId => ({
+                                    id: sectorId,
+                                })
+                            ),
+                    }
+                    : undefined,
         },
     })
 }
@@ -57,6 +78,7 @@ export async function updateUserService(
         })
 
     if (existingUser) {
+
         throw new Error(
             "Já existe um usuário com esse e-mail"
         )
@@ -68,11 +90,28 @@ export async function updateUserService(
         },
 
         data: {
+
             name: data.name,
+
             email: data.email,
+
             role: data.role,
+
             active: data.active,
-            sectorId: data.sectorId,
+
+            // SETOR PRINCIPAL
+            sectorId:
+                data.sectorId || null,
+
+            // SETORES SUPERVISIONADOS
+            supervisedSectors: {
+                set:
+                    data.supervisedSectorIds?.map(
+                        sectorId => ({
+                            id: sectorId,
+                        })
+                    ) || [],
+            },
         },
     })
 }
@@ -89,6 +128,7 @@ export async function deleteUserService(
         })
 
     if (!user) {
+
         throw new Error(
             "Usuário não encontrado"
         )

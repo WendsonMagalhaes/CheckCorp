@@ -14,6 +14,8 @@ declare module "next-auth" {
 
             sectorId?: string | null
 
+            supervisedSectorIds?: string[]
+
         } & DefaultSession["user"]
     }
 
@@ -24,6 +26,8 @@ declare module "next-auth" {
         role: string
 
         sectorId?: string | null
+
+        supervisedSectorIds?: string[]
     }
 }
 
@@ -36,5 +40,7 @@ declare module "next-auth/jwt" {
         role: string
 
         sectorId?: string | null
+
+        supervisedSectorIds?: string[]
     }
 }

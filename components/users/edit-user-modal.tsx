@@ -1,6 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import {
+    useEffect,
+    useState,
+} from "react"
 
 import {
     useForm,
@@ -18,6 +21,7 @@ import {
 import {
     updateUserAction,
 } from "@/app/(dashboard)/usuarios/actions"
+
 import {
     getSectorsAction,
 } from "@/app/(dashboard)/setores/actions"
@@ -33,6 +37,11 @@ interface UserData {
         id: string
         name: string
     } | null
+
+    supervisedSectors?: {
+        id: string
+        name: string
+    }[]
 }
 
 interface Props {
@@ -51,6 +60,8 @@ export function EditUserModal({
         register,
         handleSubmit,
         reset,
+        watch,
+
         formState: {
             errors,
             isSubmitting,
@@ -70,6 +81,11 @@ export function EditUserModal({
             }[]
         >([])
 
+    // ROLE SELECIONADA
+
+    const selectedRole =
+        watch("role")
+
     useEffect(() => {
 
         async function loadSectors() {
@@ -84,10 +100,13 @@ export function EditUserModal({
 
         reset({
             id: user.id,
+
             name: user.name,
+
             email: user.email,
+
             role: user.role as
-                "ADMIN"
+                | "ADMIN"
                 | "SUPERVISOR"
                 | "EMPLOYEE",
 
@@ -95,6 +114,11 @@ export function EditUserModal({
 
             sectorId:
                 user.sector?.id || "",
+
+            supervisedSectorIds:
+                user.supervisedSectors?.map(
+                    sector => sector.id
+                ) || [],
         })
 
     }, [user, reset])
@@ -127,30 +151,38 @@ export function EditUserModal({
     }
 
     return (
-        <div className="
-            fixed
-            inset-0
-            bg-black/40
-            z-50
-            flex
-            items-center
-            justify-center
-            p-4
-        ">
-            <div className="
-                w-full
-                max-w-lg
-                bg-card
-                border
-                border-border
-                rounded-3xl
-                p-6
-            ">
-                <h2 className="
-                    text-2xl
-                    font-black
-                    mb-6
-                ">
+        <div
+            className="
+                fixed
+                inset-0
+                bg-black/40
+                z-50
+                flex
+                items-center
+                justify-center
+                p-4
+            "
+        >
+            <div
+                className="
+                    w-full
+                    max-w-lg
+                    bg-card
+                    border
+                    border-border
+                    rounded-3xl
+                    p-6
+                    max-h-[90vh]
+                    overflow-y-auto
+                "
+            >
+                <h2
+                    className="
+                        text-2xl
+                        font-black
+                        mb-6
+                    "
+                >
                     Editar usuário
                 </h2>
 
@@ -166,6 +198,7 @@ export function EditUserModal({
                         gap-4
                     "
                 >
+                    {/* NOME */}
                     <div>
                         <input
                             placeholder="Nome"
@@ -183,10 +216,12 @@ export function EditUserModal({
 
                         {
                             errors.name && (
-                                <span className="
-                                    text-sm
-                                    text-destructive
-                                ">
+                                <span
+                                    className="
+                                        text-sm
+                                        text-destructive
+                                    "
+                                >
                                     {
                                         errors.name.message
                                     }
@@ -195,6 +230,7 @@ export function EditUserModal({
                         }
                     </div>
 
+                    {/* EMAIL */}
                     <div>
                         <input
                             placeholder="E-mail"
@@ -211,6 +247,7 @@ export function EditUserModal({
                         />
                     </div>
 
+                    {/* ROLE */}
                     <div>
                         <select
                             {...register("role")}
@@ -238,18 +275,19 @@ export function EditUserModal({
                         </select>
                     </div>
 
+                    {/* SETOR PRINCIPAL */}
                     <div>
                         <select
                             {...register("sectorId")}
                             className="
-            w-full
-            h-12
-            px-4
-            rounded-2xl
-            bg-background
-            border
-            border-border
-        "
+                                w-full
+                                h-12
+                                px-4
+                                rounded-2xl
+                                bg-background
+                                border
+                                border-border
+                            "
                         >
                             <option value="">
                                 Selecione um setor
@@ -268,11 +306,71 @@ export function EditUserModal({
                         </select>
                     </div>
 
-                    <label className="
-                        flex
-                        items-center
-                        gap-2
-                    ">
+                    {/* SETORES SUPERVISIONADOS */}
+                    {
+                        selectedRole === "SUPERVISOR" && (
+                            <div>
+                                <label
+                                    className="
+                                        text-sm
+                                        font-medium
+                                        mb-2
+                                        block
+                                    "
+                                >
+                                    Setores supervisionados
+                                </label>
+
+                                <div
+                                    className="
+                                        border
+                                        border-border
+                                        rounded-2xl
+                                        p-4
+                                        flex
+                                        flex-col
+                                        gap-3
+                                        max-h-52
+                                        overflow-y-auto
+                                    "
+                                >
+                                    {
+                                        sectors.map((sector) => (
+                                            <label
+                                                key={sector.id}
+                                                className="
+                                                    flex
+                                                    items-center
+                                                    gap-3
+                                                    text-sm
+                                                "
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    value={sector.id}
+
+                                                    {...register(
+                                                        "supervisedSectorIds"
+                                                    )}
+                                                />
+
+                                                {sector.name}
+                                            </label>
+                                        ))
+                                    }
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {/* ACTIVE */}
+                    <label
+                        className="
+                            flex
+                            items-center
+                            gap-2
+                        "
+                    >
                         <input
                             type="checkbox"
                             {...register("active")}
@@ -281,21 +379,28 @@ export function EditUserModal({
                         Usuário ativo
                     </label>
 
-                    <div className="
-                        flex
-                        justify-end
-                        gap-2
-                        mt-4
-                    ">
+                    {/* ACTIONS */}
+                    <div
+                        className="
+                            flex
+                            justify-end
+                            gap-2
+                            mt-4
+                        "
+                    >
                         <button
                             type="button"
+
                             onClick={onClose}
+
                             className="
                                 h-11
                                 px-5
                                 rounded-2xl
                                 border
                                 border-border
+                                hover:bg-muted
+                                transition
                             "
                         >
                             Cancelar
@@ -303,6 +408,9 @@ export function EditUserModal({
 
                         <button
                             type="submit"
+
+                            disabled={isSubmitting}
+
                             className="
                                 h-11
                                 px-5
@@ -310,6 +418,9 @@ export function EditUserModal({
                                 bg-primary
                                 text-white
                                 font-bold
+                                hover:opacity-90
+                                disabled:opacity-50
+                                transition
                             "
                         >
                             {

@@ -9,8 +9,8 @@ async function main() {
 
     await prisma.user.create({
         data: {
-            name: "Administrador",
-            email: "admin@checkcorp.com",
+            name: "Wendson",
+            email: "wendson@teste.com",
             password,
             role: "ADMIN",
         },

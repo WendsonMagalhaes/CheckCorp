@@ -61,6 +61,7 @@ export async function createUserAction(
     }
 }
 
+
 export async function getUsersAction() {
 
     try {
@@ -78,7 +79,18 @@ export async function getUsersAction() {
                     role: true,
                     active: true,
 
+                    // IMPORTANTE
+                    sectorId: true,
+
                     sector: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+
+                    // OPCIONAL
+                    supervisedSectors: {
                         select: {
                             id: true,
                             name: true,
@@ -96,6 +108,8 @@ export async function getUsersAction() {
         return []
     }
 }
+
+
 
 export async function updateUserAction(
     data: unknown

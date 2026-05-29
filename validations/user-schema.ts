@@ -1,5 +1,9 @@
 import { z } from "zod"
 
+/* =========================================================
+   CREATE USER
+========================================================= */
+
 export const createUserSchema = z.object({
 
     name: z
@@ -19,11 +23,24 @@ export const createUserSchema = z.object({
         "SUPERVISOR",
         "EMPLOYEE",
     ]),
-    sectorId: z.string().optional(),
+
+    // SETOR PRINCIPAL
+    sectorId: z
+        .string()
+        .optional(),
+
+    // SETORES SUPERVISIONADOS
+    supervisedSectorIds: z
+        .array(z.string())
+        .optional(),
 })
 
 export type CreateUserData =
     z.infer<typeof createUserSchema>
+
+/* =========================================================
+   UPDATE USER
+========================================================= */
 
 export const updateUserSchema =
     z.object({
@@ -43,7 +60,17 @@ export const updateUserSchema =
             "SUPERVISOR",
             "EMPLOYEE",
         ]),
-        sectorId: z.string().optional(),
+
+        // SETOR PRINCIPAL
+        sectorId: z
+            .string()
+            .optional(),
+
+        // SETORES SUPERVISIONADOS
+        supervisedSectorIds: z
+            .array(z.string())
+            .optional(),
+
         active: z.boolean(),
     })
 

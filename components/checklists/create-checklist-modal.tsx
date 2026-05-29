@@ -49,6 +49,7 @@ interface UserData {
     name: string
     role: string
     sectorId?: string | null
+    supervisedSectorIds?: string[]
 }
 
 type TargetType =
@@ -88,14 +89,15 @@ export function CreateChecklistModal() {
     const userRole =
         session?.user?.role
 
-    const userSectorId =
-        session?.user?.sectorId
+    const supervisedSectorIds =
+        session?.user?.supervisedSectorIds || []
 
     const {
         register,
         handleSubmit,
         reset,
         setValue,
+        watch,
         formState: {
             errors,
         },
@@ -111,19 +113,26 @@ export function CreateChecklistModal() {
         },
     })
 
+    const selectedSectorId =
+        watch("sectorId")
+
     useEffect(() => {
 
         async function loadData() {
 
             try {
 
-                const sectorsResponse =
-                    await getSectorsAction()
+                const [
+                    sectorsResponse,
+                    usersResponse,
+                ] = await Promise.all([
+                    getSectorsAction(),
+                    getUsersAction(),
+                ])
 
-                const usersResponse =
-                    await getUsersAction()
-
+                // ======================
                 // ADMIN
+                // ======================
 
                 if (
                     userRole === "ADMIN"
@@ -140,7 +149,9 @@ export function CreateChecklistModal() {
                     return
                 }
 
+                // ======================
                 // SUPERVISOR
+                // ======================
 
                 if (
                     userRole ===
@@ -152,17 +163,36 @@ export function CreateChecklistModal() {
                             (
                                 sector: SectorData
                             ) =>
-                                sector.id ===
-                                userSectorId
+                                supervisedSectorIds.includes(
+                                    sector.id
+                                )
                         )
 
                     const filteredUsers =
                         usersResponse.filter(
                             (
                                 user: UserData
-                            ) =>
-                                user.sectorId ===
-                                userSectorId
+                            ) => {
+
+                                // ELE MESMO
+
+                                if (
+                                    user.id ===
+                                    session?.user?.id
+                                ) {
+                                    return true
+                                }
+
+                                // USUÁRIOS DOS
+                                // SETORES SUPERVISIONADOS
+
+                                return (
+                                    !!user.sectorId &&
+                                    supervisedSectorIds.includes(
+                                        user.sectorId
+                                    )
+                                )
+                            }
                         )
 
                     setSectors(
@@ -176,7 +206,9 @@ export function CreateChecklistModal() {
                     return
                 }
 
+                // ======================
                 // EMPLOYEE
+                // ======================
 
                 if (
                     userRole ===
@@ -239,15 +271,60 @@ export function CreateChecklistModal() {
         open,
         session,
         userRole,
-        userSectorId,
+        supervisedSectorIds,
         setValue,
     ])
+
+    // FILTRA USUÁRIOS
+    // PELO SETOR SELECIONADO
+
+    const filteredUsers =
+        userRole === "SUPERVISOR"
+
+            ? users.filter(
+                (user) => {
+
+                    // O próprio supervisor
+
+                    if (
+                        user.id ===
+                        session?.user?.id
+                    ) {
+                        return true
+                    }
+
+                    // Usuários dos setores supervisionados
+
+                    return (
+                        !!user.sectorId &&
+                        supervisedSectorIds.includes(
+                            user.sectorId
+                        )
+                    )
+                }
+            )
+
+            : users
 
     async function onSubmit(
         data: CreateChecklistData
     ) {
 
-        // LIMPA CAMPO NÃO UTILIZADO
+        // REMOVE STRING VAZIA
+
+        if (!data.sectorId) {
+            data.sectorId =
+                undefined
+        }
+
+        if (!data.assignedUserId) {
+            data.assignedUserId =
+                undefined
+        }
+
+        // ======================
+        // LIMPA DESTINO
+        // ======================
 
         if (
             targetType === "SECTOR"
@@ -262,8 +339,9 @@ export function CreateChecklistModal() {
                 undefined
         }
 
-        // EMPLOYEE SEMPRE CRIA
-        // PARA ELE MESMO
+        // ======================
+        // EMPLOYEE
+        // ======================
 
         if (
             userRole ===
@@ -272,6 +350,9 @@ export function CreateChecklistModal() {
 
             data.assignedUserId =
                 session?.user?.id || ""
+
+            data.sectorId =
+                undefined
         }
 
         startTransition(async () => {
@@ -294,7 +375,19 @@ export function CreateChecklistModal() {
                 response.message
             )
 
-            reset()
+            reset({
+                title: "",
+                description: "",
+                frequency: undefined,
+                sectorId: "",
+                assignedUserId: "",
+            })
+
+            setTargetType(
+                userRole === "EMPLOYEE"
+                    ? "USER"
+                    : "SECTOR"
+            )
 
             setOpen(false)
         })
@@ -375,8 +468,8 @@ export function CreateChecklistModal() {
                                         text-muted-foreground
                                         mt-1
                                     ">
-                                        Configure o
-                                        destino do checklist
+                                        Configure o destino
+                                        do checklist
                                     </p>
 
                                 </div>
@@ -420,7 +513,7 @@ export function CreateChecklistModal() {
                                 "
                             >
 
-                                {/* TIPO */}
+                                {/* TARGET TYPE */}
 
                                 {
                                     userRole !==
@@ -664,9 +757,7 @@ export function CreateChecklistModal() {
 
                                 {
                                     targetType ===
-                                    "USER" &&
-                                    userRole !==
-                                    "EMPLOYEE" && (
+                                    "USER" && (
                                         <div>
 
                                             <select
@@ -689,7 +780,7 @@ export function CreateChecklistModal() {
                                                 </option>
 
                                                 {
-                                                    users.map(
+                                                    filteredUsers.map(
                                                         (
                                                             user
                                                         ) => (
@@ -756,7 +847,7 @@ export function CreateChecklistModal() {
                                     )
                                 }
 
-                                {/* ERROS */}
+                                {/* ERRORS */}
 
                                 {
                                     (

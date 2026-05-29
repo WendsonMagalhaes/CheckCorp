@@ -55,59 +55,142 @@ export async function createChecklistAction(data: unknown) {
 ========================================================= */
 
 export async function getChecklistsAction(): Promise<ChecklistData[]> {
+
     const session = await auth()
 
-    if (!session?.user?.id) return []
+    if (!session?.user?.id) {
+        return []
+    }
 
-    const userId = session.user.id
+    const user =
+        await prisma.user.findUnique({
+            where: {
+                id: session.user.id,
+            },
 
-    const checklists = await prisma.checklist.findMany({
-        include: {
-            sector: true,
-            assignedUser: true,
-            items: true,
-        },
-    })
+            include: {
+                supervisedSectors: true,
+            },
+        })
 
-    const enriched: ChecklistData[] = await Promise.all(
-        checklists.map(async (checklist) => {
-            const cycleKey = getCycleKey(
-                new Date(),
-                checklist.frequency
-            )
+    if (!user) {
+        return []
+    }
 
-            const execution = await prisma.checklistExecution.findFirst({
-                where: {
-                    checklistId: checklist.id,
-                    userId,
-                    cycleKey,
-                },
-                select: {
-                    id: true,
-                    status: true,
-                    items: {
-                        select: {
-                            id: true,
-                            executionId: true,
-                            itemId: true,
-                            checked: true,
-                            observation: true,
-                        },
+    let whereClause = {}
+
+    // =========================
+    // ADMIN
+    // =========================
+
+    if (user.role === "ADMIN") {
+
+        whereClause = {}
+
+    } else {
+
+        // SETORES DO USUÁRIO
+
+        const sectorIds =
+            user.role === "SUPERVISOR"
+                ? user.supervisedSectors.map(
+                    sector => sector.id
+                )
+                : user.sectorId
+                    ? [user.sectorId]
+                    : []
+
+        // EMPLOYEE E SUPERVISOR
+
+        whereClause = {
+            OR: [
+
+                // CHECKLISTS DO SETOR
+
+                {
+                    sectorId: {
+                        in: sectorIds,
                     },
                 },
-            })
 
-            return {
-                ...checklist,
-                execution: execution
-                    ? {
-                        ...execution,
-                        status: execution.status as ExecutionStatus,
-                    }
-                    : null,
-            }
+                // CHECKLISTS CRIADOS PARA O USUÁRIO
+
+                {
+                    assignedUserId: user.id,
+                },
+
+                // CHECKLISTS CRIADOS PELO USUÁRIO
+
+                {
+                    createdById: user.id,
+                },
+            ],
+        }
+    }
+
+    const checklists =
+        await prisma.checklist.findMany({
+            where: whereClause,
+
+            include: {
+                sector: true,
+                assignedUser: true,
+                items: true,
+            },
+
+            orderBy: {
+                createdAt: "desc",
+            },
         })
-    )
+
+    const enriched: ChecklistData[] =
+        await Promise.all(
+
+            checklists.map(async (checklist) => {
+
+                const cycleKey =
+                    getCycleKey(
+                        new Date(),
+                        checklist.frequency
+                    )
+
+                const execution =
+                    await prisma.checklistExecution.findFirst({
+                        where: {
+                            checklistId: checklist.id,
+                            userId: user.id,
+                            cycleKey,
+                        },
+
+                        select: {
+                            id: true,
+                            status: true,
+
+                            items: {
+                                select: {
+                                    id: true,
+                                    executionId: true,
+                                    itemId: true,
+                                    checked: true,
+                                    observation: true,
+                                },
+                            },
+                        },
+                    })
+
+                return {
+                    ...checklist,
+
+                    execution: execution
+                        ? {
+                            ...execution,
+                            status:
+                                execution.status as ExecutionStatus,
+                        }
+                        : null,
+                }
+            })
+        )
 
     return enriched
 }

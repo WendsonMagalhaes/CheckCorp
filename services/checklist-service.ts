@@ -1,3 +1,4 @@
+
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -5,6 +6,10 @@ import {
     CreateChecklistData,
     UpdateChecklistData,
 } from "@/validations/checklist-schema"
+
+/* =========================================================
+   CREATE
+========================================================= */
 
 export async function createChecklistService(
     data: CreateChecklistData
@@ -30,23 +35,36 @@ export async function createChecklistService(
         })
 
     if (!user) {
-        throw new Error("Usuário não encontrado")
+        throw new Error(
+            "Usuário não encontrado"
+        )
     }
 
-    // OBRIGA TER DESTINO
+    // =====================================
+    // VALIDAÇÃO DE DESTINO
+    // =====================================
 
-    if (
-        !data.sectorId &&
-        !data.assignedUserId
-    ) {
+    const hasSector =
+        !!data.sectorId
+
+    const hasUser =
+        !!data.assignedUserId
+
+    if (!hasSector && !hasUser) {
         throw new Error(
             "Selecione um setor ou usuário"
         )
     }
 
-    // =========================
+    if (hasSector && hasUser) {
+        throw new Error(
+            "Selecione apenas um destino"
+        )
+    }
+
+    // =====================================
     // ADMIN
-    // =========================
+    // =====================================
 
     if (user.role === "ADMIN") {
 
@@ -67,9 +85,9 @@ export async function createChecklistService(
         })
     }
 
-    // =========================
+    // =====================================
     // SUPERVISOR
-    // =========================
+    // =====================================
 
     if (user.role === "SUPERVISOR") {
 
@@ -80,15 +98,18 @@ export async function createChecklistService(
 
         // CHECKLIST POR SETOR
 
-        if (
-            data.sectorId &&
-            !supervisedSectorIds.includes(
-                data.sectorId
-            )
-        ) {
-            throw new Error(
-                "Você não pode criar checklist para este setor"
-            )
+        if (data.sectorId) {
+
+            const canUseSector =
+                supervisedSectorIds.includes(
+                    data.sectorId
+                )
+
+            if (!canUseSector) {
+                throw new Error(
+                    "Você não possui acesso a este setor"
+                )
+            }
         }
 
         // CHECKLIST POR USUÁRIO
@@ -102,12 +123,24 @@ export async function createChecklistService(
                     },
                 })
 
-            if (
-                !assignedUser ||
-                !assignedUser.sectorId ||
-                !supervisedSectorIds.includes(
+            if (!assignedUser) {
+                throw new Error(
+                    "Usuário não encontrado"
+                )
+            }
+
+            const isOwnChecklist =
+                assignedUser.id === user.id
+
+            const belongsToSupervisedSector =
+                !!assignedUser.sectorId &&
+                supervisedSectorIds.includes(
                     assignedUser.sectorId
                 )
+
+            if (
+                !isOwnChecklist &&
+                !belongsToSupervisedSector
             ) {
                 throw new Error(
                     "Usuário fora dos setores supervisionados"
@@ -132,13 +165,11 @@ export async function createChecklistService(
         })
     }
 
-    // =========================
+    // =====================================
     // EMPLOYEE
-    // =========================
+    // =====================================
 
     if (user.role === "EMPLOYEE") {
-
-        // SOMENTE PARA ELE MESMO
 
         if (
             data.assignedUserId !== user.id
@@ -156,13 +187,21 @@ export async function createChecklistService(
 
                 assignedUserId: user.id,
 
+                sectorId: null,
+
                 createdById: user.id,
             },
         })
     }
 
-    throw new Error("Permissão inválida")
+    throw new Error(
+        "Permissão inválida"
+    )
 }
+
+/* =========================================================
+   UPDATE
+========================================================= */
 
 export async function updateChecklistService(
     data: UpdateChecklistData
@@ -176,6 +215,23 @@ export async function updateChecklistService(
         )
     }
 
+    const user =
+        await prisma.user.findUnique({
+            where: {
+                id: session.user.id,
+            },
+
+            include: {
+                supervisedSectors: true,
+            },
+        })
+
+    if (!user) {
+        throw new Error(
+            "Usuário não encontrado"
+        )
+    }
+
     const checklist =
         await prisma.checklist.findUnique({
             where: {
@@ -184,61 +240,216 @@ export async function updateChecklistService(
         })
 
     if (!checklist) {
-
         throw new Error(
             "Checklist não encontrado"
         )
     }
 
-    // SOMENTE O CRIADOR
-    // PODE EDITAR
+    // =====================================
+    // PERMISSÃO
+    // =====================================
 
-    if (
-        checklist.createdById !==
-        session.user.id
-    ) {
+    const isAdmin =
+        user.role === "ADMIN"
+
+    const isOwner =
+        checklist.createdById === user.id
+
+    if (!isAdmin && !isOwner) {
         throw new Error(
             "Você não pode editar este checklist"
         )
     }
 
-    // OBRIGA TER UM DESTINO
+    // =====================================
+    // VALIDA DESTINO
+    // =====================================
 
-    if (
-        !data.sectorId &&
-        !data.assignedUserId
-    ) {
+    const hasSector =
+        !!data.sectorId
+
+    const hasUser =
+        !!data.assignedUserId
+
+    if (!hasSector && !hasUser) {
         throw new Error(
             "Selecione um setor ou usuário"
         )
     }
 
-    return prisma.checklist.update({
-        where: {
-            id: data.id,
-        },
+    if (hasSector && hasUser) {
+        throw new Error(
+            "Selecione apenas um destino"
+        )
+    }
 
-        data: {
-            title: data.title,
+    // =====================================
+    // ADMIN
+    // =====================================
 
-            description:
-                data.description,
+    if (user.role === "ADMIN") {
 
-            frequency:
-                data.frequency,
+        return prisma.checklist.update({
+            where: {
+                id: data.id,
+            },
 
-            active:
-                data.active,
+            data: {
+                title: data.title,
 
-            // SETOR
-            sectorId:
-                data.sectorId || undefined,
+                description:
+                    data.description,
 
-            assignedUserId:
-                data.assignedUserId || undefined,
-        },
-    })
+                frequency:
+                    data.frequency,
+
+                active:
+                    data.active,
+
+                sectorId:
+                    data.sectorId || null,
+
+                assignedUserId:
+                    data.assignedUserId || null,
+            },
+        })
+    }
+
+    // =====================================
+    // SUPERVISOR
+    // =====================================
+
+    if (user.role === "SUPERVISOR") {
+
+        const supervisedSectorIds =
+            user.supervisedSectors.map(
+                sector => sector.id
+            )
+
+        // SETOR
+
+        if (data.sectorId) {
+
+            const canUseSector =
+                supervisedSectorIds.includes(
+                    data.sectorId
+                )
+
+            if (!canUseSector) {
+                throw new Error(
+                    "Você não pode usar este setor"
+                )
+            }
+        }
+
+        // USUÁRIO
+
+        if (data.assignedUserId) {
+
+            const assignedUser =
+                await prisma.user.findUnique({
+                    where: {
+                        id: data.assignedUserId,
+                    },
+                })
+
+            if (!assignedUser) {
+                throw new Error(
+                    "Usuário não encontrado"
+                )
+            }
+
+            const isOwnChecklist =
+                assignedUser.id === user.id
+
+            const belongsToSupervisedSector =
+                !!assignedUser.sectorId &&
+                supervisedSectorIds.includes(
+                    assignedUser.sectorId
+                )
+
+            if (
+                !isOwnChecklist &&
+                !belongsToSupervisedSector
+            ) {
+                throw new Error(
+                    "Usuário inválido"
+                )
+            }
+        }
+
+        return prisma.checklist.update({
+            where: {
+                id: data.id,
+            },
+
+            data: {
+                title: data.title,
+
+                description:
+                    data.description,
+
+                frequency:
+                    data.frequency,
+
+                active:
+                    data.active,
+
+                sectorId:
+                    data.sectorId || null,
+
+                assignedUserId:
+                    data.assignedUserId || null,
+            },
+        })
+    }
+
+    // =====================================
+    // EMPLOYEE
+    // =====================================
+
+    if (user.role === "EMPLOYEE") {
+
+        if (
+            data.assignedUserId !== user.id
+        ) {
+            throw new Error(
+                "Você só pode editar checklists próprios"
+            )
+        }
+
+        return prisma.checklist.update({
+            where: {
+                id: data.id,
+            },
+
+            data: {
+                title: data.title,
+
+                description:
+                    data.description,
+
+                frequency:
+                    data.frequency,
+
+                active:
+                    data.active,
+
+                sectorId: null,
+
+                assignedUserId: user.id,
+            },
+        })
+    }
+
+    throw new Error(
+        "Permissão inválida"
+    )
 }
+
+/* =========================================================
+   DELETE
+========================================================= */
 
 export async function deleteChecklistService(
     checklistId: string
@@ -260,19 +471,35 @@ export async function deleteChecklistService(
         })
 
     if (!checklist) {
-
         throw new Error(
             "Checklist não encontrado"
         )
     }
 
-    // SOMENTE O CRIADOR
-    // PODE EXCLUIR
+    const user =
+        await prisma.user.findUnique({
+            where: {
+                id: session.user.id,
+            },
+        })
 
-    if (
-        checklist.createdById !==
-        session.user.id
-    ) {
+    if (!user) {
+        throw new Error(
+            "Usuário não encontrado"
+        )
+    }
+
+    // ADMIN pode tudo
+
+    const isAdmin =
+        user.role === "ADMIN"
+
+    // CRIADOR
+
+    const isOwner =
+        checklist.createdById === user.id
+
+    if (!isAdmin && !isOwner) {
         throw new Error(
             "Você não pode excluir este checklist"
         )
@@ -284,3 +511,4 @@ export async function deleteChecklistService(
         },
     })
 }
+

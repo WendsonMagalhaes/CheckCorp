@@ -19,8 +19,9 @@ import {
     CreateUserData,
 } from "@/validations/user-schema"
 
-import { createUserAction }
-    from "@/app/(dashboard)/usuarios/actions"
+import {
+    createUserAction,
+} from "@/app/(dashboard)/usuarios/actions"
 
 import {
     getSectorsAction,
@@ -30,6 +31,7 @@ interface Props {
     open: boolean
     onClose: () => void
 }
+
 interface SectorData {
     id: string
     name: string
@@ -47,6 +49,7 @@ export function CreateUserModal({
         register,
         handleSubmit,
         reset,
+        watch,
         formState: { errors },
     } = useForm<CreateUserData>({
         resolver:
@@ -56,6 +59,10 @@ export function CreateUserModal({
     const [sectors, setSectors] =
         useState<SectorData[]>([])
 
+    // ROLE SELECIONADA
+
+    const selectedRole =
+        watch("role")
 
     useEffect(() => {
 
@@ -76,21 +83,25 @@ export function CreateUserModal({
 
         if (open) {
 
-            document.body.style.overflow = "hidden"
+            document.body.style.overflow =
+                "hidden"
 
             loadSectors()
 
         } else {
 
-            document.body.style.overflow = "auto"
+            document.body.style.overflow =
+                "auto"
         }
 
         return () => {
 
-            document.body.style.overflow = "auto"
+            document.body.style.overflow =
+                "auto"
         }
 
     }, [open])
+
     async function onSubmit(
         data: CreateUserData
     ) {
@@ -147,10 +158,8 @@ export function CreateUserModal({
                     shadow-2xl
                     border
                     border-border
-
                     max-h-[95vh]
                     overflow-y-auto
-
                     animate-in
                     slide-in-from-bottom
                     sm:zoom-in-95
@@ -237,7 +246,6 @@ export function CreateUserModal({
                             className="
                                 w-full
                                 h-12
-                                sm:h-13
                                 px-4
                                 rounded-2xl
                                 border
@@ -371,40 +379,6 @@ export function CreateUserModal({
                                 Funcionário
                             </option>
                         </select>
-                        <div>
-                            <select
-                                {...register("sectorId")}
-                                className="
-            w-full
-            h-12
-            px-4
-            rounded-2xl
-            border
-            border-border
-            bg-background
-            outline-none
-            transition
-            focus:ring-2
-            focus:ring-primary/30
-            focus:border-primary
-        "
-                            >
-                                <option value="">
-                                    Selecione um setor
-                                </option>
-
-                                {
-                                    sectors.map((sector) => (
-                                        <option
-                                            key={sector.id}
-                                            value={sector.id}
-                                        >
-                                            {sector.name}
-                                        </option>
-                                    ))
-                                }
-                            </select>
-                        </div>
 
                         {errors.role && (
                             <span
@@ -419,6 +393,99 @@ export function CreateUserModal({
                             </span>
                         )}
                     </div>
+
+                    {/* SETOR PRINCIPAL */}
+                    <div>
+                        <select
+                            {...register("sectorId")}
+                            className="
+                                w-full
+                                h-12
+                                px-4
+                                rounded-2xl
+                                border
+                                border-border
+                                bg-background
+                                outline-none
+                                transition
+                                focus:ring-2
+                                focus:ring-primary/30
+                                focus:border-primary
+                            "
+                        >
+                            <option value="">
+                                Selecione um setor
+                            </option>
+
+                            {
+                                sectors.map((sector) => (
+                                    <option
+                                        key={sector.id}
+                                        value={sector.id}
+                                    >
+                                        {sector.name}
+                                    </option>
+                                ))
+                            }
+                        </select>
+                    </div>
+
+                    {/* SETORES SUPERVISIONADOS */}
+                    {
+                        selectedRole === "SUPERVISOR" && (
+                            <div>
+                                <label
+                                    className="
+                                        text-sm
+                                        font-medium
+                                        mb-2
+                                        block
+                                    "
+                                >
+                                    Setores supervisionados
+                                </label>
+
+                                <div
+                                    className="
+                                        border
+                                        border-border
+                                        rounded-2xl
+                                        p-4
+                                        flex
+                                        flex-col
+                                        gap-3
+                                        max-h-52
+                                        overflow-y-auto
+                                    "
+                                >
+                                    {
+                                        sectors.map((sector) => (
+                                            <label
+                                                key={sector.id}
+                                                className="
+                                                    flex
+                                                    items-center
+                                                    gap-3
+                                                    text-sm
+                                                "
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    value={sector.id}
+
+                                                    {...register(
+                                                        "supervisedSectorIds"
+                                                    )}
+                                                />
+
+                                                {sector.name}
+                                            </label>
+                                        ))
+                                    }
+                                </div>
+                            </div>
+                        )
+                    }
 
                     {/* BUTTON */}
                     <button
@@ -436,9 +503,11 @@ export function CreateUserModal({
                             mt-2
                         "
                     >
-                        {isPending
-                            ? "Criando..."
-                            : "Criar usuário"}
+                        {
+                            isPending
+                                ? "Criando..."
+                                : "Criar usuário"
+                        }
                     </button>
                 </form>
             </div>
