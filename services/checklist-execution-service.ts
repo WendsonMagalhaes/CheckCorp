@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma"
 
+function generateCycleKey(checklistId: string) {
+    const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+    return `${checklistId}:${today}`
+}
+
 export async function startExecutionService(
     checklistId: string,
     userId: string
@@ -13,10 +18,26 @@ export async function startExecutionService(
         throw new Error("Checklist não encontrado")
     }
 
+    const cycleKey = generateCycleKey(checklistId)
+
+    // 🔒 evita duplicação no mesmo ciclo (ex: mesmo dia)
+    const existingExecution = await prisma.checklistExecution.findFirst({
+        where: {
+            checklistId,
+            userId,
+            cycleKey,
+        },
+    })
+
+    if (existingExecution) {
+        return existingExecution
+    }
+
     const execution = await prisma.checklistExecution.create({
         data: {
             checklistId,
             userId,
+            cycleKey, // ✅ corrigido aqui
         },
     })
 
@@ -29,7 +50,6 @@ export async function startExecutionService(
 
     return execution
 }
-
 
 export async function updateExecutionItemService(
     executionItemId: string,
@@ -54,4 +74,3 @@ export async function finishExecutionService(executionId: string) {
         },
     })
 }
-

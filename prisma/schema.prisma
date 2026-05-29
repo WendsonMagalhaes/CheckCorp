@@ -8,25 +8,35 @@ datasource db {
 }
 
 model User {
-  id         String               @id @default(cuid())
-  name       String
-  email      String               @unique
-  password   String
-  role       UserRole             @default(EMPLOYEE)
-  active     Boolean              @default(true)
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-  avatar     String?
-  phone      String?
-  sectorId   String?
+  id       String @id @default(cuid())
+  name     String
+  email    String @unique
+  password String
+
+  role UserRole @default(EMPLOYEE)
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  avatar String?
+  phone  String?
+
+  // SETOR PRINCIPAL
+  sectorId String?
+  sector   Sector? @relation(fields: [sectorId], references: [id])
+
+  // SETORES SUPERVISIONADOS
+  supervisedSectors Sector[] @relation("SectorSupervisors")
 
   accounts   Account[]
   executions ChecklistExecution[]
   sessions   Session[]
 
-  createdChecklists Checklist[]
+  createdChecklists Checklist[] @relation("ChecklistCreator")
 
-  sector     Sector?              @relation(fields: [sectorId], references: [id])
+  assignedChecklists Checklist[] @relation("AssignedChecklistUser")
 }
 
 model Account {
@@ -64,34 +74,50 @@ model VerificationToken {
 }
 
 model Sector {
-  id          String      @id @default(cuid())
-  name        String      @unique
+  id String @id @default(cuid())
+
+  name        String  @unique
   description String?
-  active      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  checklists  Checklist[]
-  users       User[]
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checklists Checklist[]
+
+  users User[]
+
+  supervisors User[] @relation("SectorSupervisors")
 }
 
 model Checklist {
-  id          String               @id @default(cuid())
+  id String @id @default(cuid())
+
   title       String
   description String?
-  frequency   Frequency
-  sectorId    String
 
-  active      Boolean              @default(true)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  frequency Frequency
 
-  sector      Sector               @relation(fields: [sectorId], references: [id])
+  active Boolean @default(true)
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // SETOR DESTINO
+  sectorId String?
+  sector   Sector? @relation(fields: [sectorId], references: [id])
+
+  // USUÁRIO DESTINO
+  assignedUserId String?
+  assignedUser   User?   @relation("AssignedChecklistUser", fields: [assignedUserId], references: [id])
+
+  // QUEM CRIOU
   createdById String?
-  createdBy   User? @relation(fields: [createdById], references: [id])
+  createdBy   User?   @relation("ChecklistCreator", fields: [createdById], references: [id])
 
-  executions  ChecklistExecution[]
-  items       ChecklistItem[]
+  executions ChecklistExecution[]
+  items      ChecklistItem[]
 }
 
 model ChecklistItem {
@@ -106,16 +132,24 @@ model ChecklistItem {
 }
 
 model ChecklistExecution {
-  id          String                   @id @default(cuid())
+  id          String @id @default(cuid())
   checklistId String
   userId      String
-  status      ExecutionStatus          @default(IN_PROGRESS)
-  startedAt   DateTime                 @default(now())
+  cycleKey    String
+
+  status      ExecutionStatus @default(IN_PROGRESS)
+
+  startedAt   DateTime @default(now())
   finishedAt  DateTime?
-  checklist   Checklist                @relation(fields: [checklistId], references: [id])
-  user        User                     @relation(fields: [userId], references: [id])
+
+  checklist   Checklist @relation(fields: [checklistId], references: [id])
+  user        User @relation(fields: [userId], references: [id])
+
   items       ChecklistExecutionItem[]
+
+  @@unique([checklistId, userId, cycleKey])
 }
+
 
 model ChecklistExecutionItem {
   id          String             @id @default(cuid())
@@ -123,8 +157,9 @@ model ChecklistExecutionItem {
   itemId      String
   checked     Boolean            @default(false)
   observation String?
-  execution   ChecklistExecution @relation(fields: [executionId], references: [id])
+  execution   ChecklistExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
   item        ChecklistItem      @relation(fields: [itemId], references: [id])
+  
 }
 
 enum UserRole {

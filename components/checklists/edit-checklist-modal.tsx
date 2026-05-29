@@ -3,7 +3,12 @@
 import {
     useEffect,
     useState,
+    useTransition,
 } from "react"
+
+import {
+    useSession,
+} from "next-auth/react"
 
 import {
     useForm,
@@ -28,14 +33,27 @@ import {
     getSectorsAction,
 } from "@/app/(dashboard)/setores/actions"
 
+import {
+    getUsersAction,
+} from "@/app/(dashboard)/usuarios/actions"
+
 interface SectorData {
     id: string
     name: string
 }
 
+interface UserData {
+    id: string
+    name: string
+    role: string
+    sectorId?: string | null
+}
+
 interface ChecklistData {
     id: string
+
     title: string
+
     description?: string | null
 
     frequency:
@@ -45,10 +63,15 @@ interface ChecklistData {
 
     active: boolean
 
-    sector: {
+    sector?: {
         id: string
         name: string
-    }
+    } | null
+
+    assignedUser?: {
+        id: string
+        name: string
+    } | null
 }
 
 interface Props {
@@ -57,46 +80,196 @@ interface Props {
     checklist: ChecklistData
 }
 
+type TargetType =
+    | "SECTOR"
+    | "USER"
+
 export function EditChecklistModal({
     open,
     onClose,
     checklist,
 }: Props) {
 
-    const [sectors, setSectors] =
-        useState<SectorData[]>([])
+    const { data: session } =
+        useSession()
+
+    const [
+        sectors,
+        setSectors,
+    ] = useState<SectorData[]>([])
+
+    const [
+        users,
+        setUsers,
+    ] = useState<UserData[]>([])
+
+    const [
+        targetType,
+        setTargetType,
+    ] = useState<TargetType>(
+        checklist.sector
+            ? "SECTOR"
+            : "USER"
+    )
+
+    const [
+        isPending,
+        startTransition,
+    ] = useTransition()
+
+    const userRole =
+        session?.user?.role
+
+    const userSectorId =
+        session?.user?.sectorId
+
+    const isEmployee =
+        userRole === "EMPLOYEE"
 
     const {
         register,
         handleSubmit,
         reset,
+        watch,
+        setValue,
 
         formState: {
             errors,
-            isSubmitting,
         },
     } = useForm<UpdateChecklistData>({
         resolver:
             zodResolver(
                 updateChecklistSchema
             ),
+
+        defaultValues: {
+            sectorId: "",
+            assignedUserId: "",
+        },
     })
 
+    const selectedSectorId =
+        watch("sectorId")
+
     useEffect(() => {
 
-        async function loadSectors() {
+        async function loadData() {
 
-            const response =
-                await getSectorsAction()
+            try {
 
-            setSectors(response)
+                const sectorsResponse =
+                    await getSectorsAction()
+
+                const usersResponse =
+                    await getUsersAction()
+
+                // ADMIN
+
+                if (
+                    userRole === "ADMIN"
+                ) {
+
+                    setSectors(
+                        sectorsResponse
+                    )
+
+                    setUsers(
+                        usersResponse
+                    )
+
+                    return
+                }
+
+                // SUPERVISOR
+
+                if (
+                    userRole ===
+                    "SUPERVISOR"
+                ) {
+
+                    const filteredSectors =
+                        sectorsResponse.filter(
+                            (
+                                sector: SectorData
+                            ) =>
+                                sector.id ===
+                                userSectorId
+                        )
+
+                    const filteredUsers =
+                        usersResponse.filter(
+                            (
+                                user: UserData
+                            ) =>
+                                user.sectorId ===
+                                userSectorId
+                        )
+
+                    setSectors(
+                        filteredSectors
+                    )
+
+                    setUsers(
+                        filteredUsers
+                    )
+
+                    return
+                }
+
+                // EMPLOYEE
+
+                if (
+                    userRole ===
+                    "EMPLOYEE"
+                ) {
+
+                    const currentUser =
+                        usersResponse.filter(
+                            (
+                                user: UserData
+                            ) =>
+                                user.id ===
+                                session?.user?.id
+                        )
+
+                    setUsers(
+                        currentUser
+                    )
+
+                    setSectors([])
+                }
+
+            } catch (error) {
+
+                console.log(error)
+
+                toast.error(
+                    "Erro ao carregar dados"
+                )
+            }
         }
 
-        loadSectors()
+        if (open) {
+            loadData()
+        }
 
-    }, [])
+    }, [
+        open,
+        userRole,
+        userSectorId,
+        session?.user?.id,
+    ])
 
     useEffect(() => {
+
+        const currentType =
+            checklist.sector
+                ? "SECTOR"
+                : "USER"
+
+        setTargetType(
+            currentType
+        )
 
         reset({
             id: checklist.id,
@@ -114,34 +287,72 @@ export function EditChecklistModal({
                 checklist.active,
 
             sectorId:
-                checklist.sector.id,
+                checklist.sector?.id || "",
+
+            assignedUserId:
+                checklist.assignedUser?.id || "",
         })
 
-    }, [checklist, reset])
+    }, [
+        checklist,
+        reset,
+    ])
 
     async function onSubmit(
         data: UpdateChecklistData
     ) {
 
-        const response =
-            await updateChecklistAction(
-                data
-            )
+        // EMPLOYEE NÃO ALTERA DESTINO
 
-        if (!response.success) {
+        if (isEmployee) {
 
-            toast.error(
+            data.sectorId =
+                checklist.sector?.id || undefined
+
+            data.assignedUserId =
+                checklist.assignedUser?.id || undefined
+
+        } else {
+
+            // LIMPA O CAMPO NÃO UTILIZADO
+
+            if (
+                targetType ===
+                "SECTOR"
+            ) {
+
+                data.assignedUserId =
+                    undefined
+
+            } else {
+
+                data.sectorId =
+                    undefined
+            }
+        }
+
+        startTransition(async () => {
+
+            const response =
+                await updateChecklistAction(
+                    data
+                )
+
+            if (!response.success) {
+
+                toast.error(
+                    response.message
+                )
+
+                return
+            }
+
+            toast.success(
                 response.message
             )
 
-            return
-        }
-
-        toast.success(
-            response.message
-        )
-
-        onClose()
+            onClose()
+        })
     }
 
     if (!open) {
@@ -160,6 +371,7 @@ export function EditChecklistModal({
             justify-center
             p-4
         ">
+
             <div className="
                 w-full
                 max-w-xl
@@ -167,16 +379,38 @@ export function EditChecklistModal({
                 border
                 border-border
                 rounded-3xl
-                p-6
                 shadow-2xl
+                overflow-hidden
             ">
-                <h2 className="
-                    text-2xl
-                    font-black
-                    mb-6
+
+                {/* HEADER */}
+
+                <div className="
+                    px-6
+                    py-5
+                    border-b
+                    border-border
                 ">
-                    Editar checklist
-                </h2>
+
+                    <h2 className="
+                        text-2xl
+                        font-black
+                    ">
+                        Editar checklist
+                    </h2>
+
+                    <p className="
+                        text-sm
+                        text-muted-foreground
+                        mt-1
+                    ">
+                        Atualize as informações
+                        do checklist
+                    </p>
+
+                </div>
+
+                {/* FORM */}
 
                 <form
                     onSubmit={
@@ -185,16 +419,96 @@ export function EditChecklistModal({
                         )
                     }
                     className="
+                        p-6
                         flex
                         flex-col
-                        gap-4
+                        gap-5
                     "
                 >
-                    {/* TITULO */}
+
+                    {/* TIPO */}
+
+                    {
+                        !isEmployee && (
+                            <div className="
+                                grid
+                                grid-cols-2
+                                gap-3
+                            ">
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+
+                                        setTargetType(
+                                            "SECTOR"
+                                        )
+
+                                        setValue(
+                                            "assignedUserId",
+                                            ""
+                                        )
+                                    }}
+                                    className={`
+                                        h-14
+                                        rounded-2xl
+                                        border
+                                        text-sm
+                                        font-semibold
+                                        transition
+
+                                        ${targetType === "SECTOR"
+                                            ? "border-primary bg-primary/10"
+                                            : "border-border"
+                                        }
+                                    `}
+                                >
+                                    Por setor
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+
+                                        setTargetType(
+                                            "USER"
+                                        )
+
+                                        setValue(
+                                            "sectorId",
+                                            ""
+                                        )
+                                    }}
+                                    className={`
+                                        h-14
+                                        rounded-2xl
+                                        border
+                                        text-sm
+                                        font-semibold
+                                        transition
+
+                                        ${targetType === "USER"
+                                            ? "border-primary bg-primary/10"
+                                            : "border-border"
+                                        }
+                                    `}
+                                >
+                                    Individual
+                                </button>
+
+                            </div>
+                        )
+                    }
+
+                    {/* TITLE */}
+
                     <div>
+
                         <input
                             placeholder="Título"
-                            {...register("title")}
+                            {...register(
+                                "title"
+                            )}
                             className="
                                 w-full
                                 h-12
@@ -213,15 +527,20 @@ export function EditChecklistModal({
                                     text-destructive
                                 ">
                                     {
-                                        errors.title.message
+                                        errors
+                                            .title
+                                            .message
                                     }
                                 </span>
                             )
                         }
+
                     </div>
 
-                    {/* DESCRIÇÃO */}
+                    {/* DESCRIPTION */}
+
                     <div>
+
                         <textarea
                             placeholder="Descrição"
                             {...register(
@@ -238,10 +557,13 @@ export function EditChecklistModal({
                                 resize-none
                             "
                         />
+
                     </div>
 
-                    {/* FREQUENCIA */}
+                    {/* FREQUENCY */}
+
                     <div>
+
                         <select
                             {...register(
                                 "frequency"
@@ -256,6 +578,7 @@ export function EditChecklistModal({
                                 bg-background
                             "
                         >
+
                             <option value="DAILY">
                                 Diário
                             </option>
@@ -267,75 +590,217 @@ export function EditChecklistModal({
                             <option value="MONTHLY">
                                 Mensal
                             </option>
+
                         </select>
+
                     </div>
 
-                    {/* SETOR */}
-                    <div>
-                        <select
-                            {...register(
-                                "sectorId"
-                            )}
-                            className="
-                                w-full
-                                h-12
-                                px-4
+                    {/* DESTINO SETOR */}
+
+                    {
+                        !isEmployee &&
+                        targetType ===
+                        "SECTOR" && (
+                            <div>
+
+                                <select
+                                    {...register(
+                                        "sectorId"
+                                    )}
+                                    className="
+                                        w-full
+                                        h-12
+                                        px-4
+                                        rounded-2xl
+                                        border
+                                        border-border
+                                        bg-background
+                                    "
+                                >
+
+                                    <option value="">
+                                        Selecione o setor
+                                    </option>
+
+                                    {
+                                        sectors.map(
+                                            (
+                                                sector
+                                            ) => (
+                                                <option
+                                                    key={
+                                                        sector.id
+                                                    }
+                                                    value={
+                                                        sector.id
+                                                    }
+                                                >
+                                                    {
+                                                        sector.name
+                                                    }
+                                                </option>
+                                            )
+                                        )
+                                    }
+
+                                </select>
+
+                            </div>
+                        )
+                    }
+
+                    {/* DESTINO USER */}
+
+                    {
+                        !isEmployee &&
+                        targetType ===
+                        "USER" && (
+                            <div>
+
+                                <select
+                                    {...register(
+                                        "assignedUserId"
+                                    )}
+                                    className="
+                                        w-full
+                                        h-12
+                                        px-4
+                                        rounded-2xl
+                                        border
+                                        border-border
+                                        bg-background
+                                    "
+                                >
+
+                                    <option value="">
+                                        Selecione o usuário
+                                    </option>
+
+                                    {
+                                        users.map(
+                                            (
+                                                user
+                                            ) => (
+                                                <option
+                                                    key={
+                                                        user.id
+                                                    }
+                                                    value={
+                                                        user.id
+                                                    }
+                                                >
+                                                    {
+                                                        user.name
+                                                    }
+                                                </option>
+                                            )
+                                        )
+                                    }
+
+                                </select>
+
+                            </div>
+                        )
+                    }
+
+                    {/* EMPLOYEE INFO */}
+
+                    {
+                        isEmployee && (
+                            <div className="
                                 rounded-2xl
                                 border
-                                border-border
-                                bg-background
-                            "
-                        >
-                            <option value="">
-                                Selecione um setor
-                            </option>
+                                border-primary/20
+                                bg-primary/5
+                                p-4
+                                text-sm
+                            ">
+                                Você pode alterar
+                                apenas as informações
+                                do checklist. O destino
+                                não pode ser alterado.
+                            </div>
+                        )
+                    }
 
-                            {
-                                sectors.map(
-                                    (sector) => (
-                                        <option
-                                            key={
-                                                sector.id
-                                            }
-                                            value={
-                                                sector.id
-                                            }
-                                        >
-                                            {
-                                                sector.name
-                                            }
-                                        </option>
-                                    )
-                                )
-                            }
-                        </select>
-                    </div>
+                    {/* INFO */}
+
+                    {
+                        targetType ===
+                        "SECTOR" &&
+                        selectedSectorId && (
+                            <div className="
+                                text-xs
+                                text-muted-foreground
+                                bg-muted
+                                rounded-2xl
+                                p-3
+                            ">
+                                O checklist será
+                                compartilhado para
+                                todos os usuários
+                                do setor.
+                            </div>
+                        )
+                    }
 
                     {/* ACTIVE */}
+
                     <label className="
                         flex
                         items-center
-                        gap-2
+                        gap-3
                         text-sm
                         font-medium
                     ">
+
                         <input
                             type="checkbox"
                             {...register(
                                 "active"
                             )}
+                            className="
+                                w-4
+                                h-4
+                            "
                         />
 
                         Checklist ativo
+
                     </label>
 
+                    {/* ERRO */}
+
+                    {
+                        (
+                            errors.sectorId ||
+                            errors.assignedUserId
+                        ) && (
+                            <span className="
+                                text-sm
+                                text-destructive
+                            ">
+                                {
+                                    errors
+                                        .sectorId
+                                        ?.message ||
+                                    errors
+                                        .assignedUserId
+                                        ?.message
+                                }
+                            </span>
+                        )
+                    }
+
                     {/* ACTIONS */}
+
                     <div className="
                         flex
                         justify-end
                         gap-2
                         mt-4
                     ">
+
                         <button
                             type="button"
                             onClick={onClose}
@@ -353,7 +818,7 @@ export function EditChecklistModal({
                         <button
                             type="submit"
                             disabled={
-                                isSubmitting
+                                isPending
                             }
                             className="
                                 h-11
@@ -365,15 +830,21 @@ export function EditChecklistModal({
                                 disabled:opacity-50
                             "
                         >
+
                             {
-                                isSubmitting
+                                isPending
                                     ? "Salvando..."
                                     : "Salvar"
                             }
+
                         </button>
+
                     </div>
+
                 </form>
+
             </div>
+
         </div>
     )
 }

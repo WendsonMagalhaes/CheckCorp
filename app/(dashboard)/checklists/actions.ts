@@ -1,6 +1,11 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { getCycleKey } from "@/lib/cycle-key"
+import { auth } from "@/lib/auth"
+
+import type { ChecklistData } from "@/types/checklist"
+import { ExecutionStatus } from "@prisma/client"
 
 import {
     createChecklistSchema,
@@ -13,15 +18,14 @@ import {
     deleteChecklistService,
 } from "@/services/checklist-service"
 
-export async function createChecklistAction(
-    data: unknown
-) {
+/* =========================================================
+   CREATE
+========================================================= */
 
-    const parsed =
-        createChecklistSchema.safeParse(data)
+export async function createChecklistAction(data: unknown) {
+    const parsed = createChecklistSchema.safeParse(data)
 
     if (!parsed.success) {
-
         return {
             success: false,
             message: "Dados inválidos",
@@ -29,18 +33,13 @@ export async function createChecklistAction(
     }
 
     try {
-
-        await createChecklistService(
-            parsed.data
-        )
+        await createChecklistService(parsed.data)
 
         return {
             success: true,
             message: "Checklist criado com sucesso",
         }
-
     } catch (error) {
-
         return {
             success: false,
             message:
@@ -51,39 +50,95 @@ export async function createChecklistAction(
     }
 }
 
-export async function getChecklistsAction() {
+/* =========================================================
+   GET ALL CHECKLISTS
+========================================================= */
 
+export async function getChecklistsAction(): Promise<ChecklistData[]> {
+    const session = await auth()
+
+    if (!session?.user?.id) return []
+
+    const userId = session.user.id
+
+    const checklists = await prisma.checklist.findMany({
+        include: {
+            sector: true,
+            assignedUser: true,
+            items: true,
+        },
+    })
+
+    const enriched: ChecklistData[] = await Promise.all(
+        checklists.map(async (checklist) => {
+            const cycleKey = getCycleKey(
+                new Date(),
+                checklist.frequency
+            )
+
+            const execution = await prisma.checklistExecution.findFirst({
+                where: {
+                    checklistId: checklist.id,
+                    userId,
+                    cycleKey,
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    items: {
+                        select: {
+                            id: true,
+                            executionId: true,
+                            itemId: true,
+                            checked: true,
+                            observation: true,
+                        },
+                    },
+                },
+            })
+
+            return {
+                ...checklist,
+                execution: execution
+                    ? {
+                        ...execution,
+                        status: execution.status as ExecutionStatus,
+                    }
+                    : null,
+            }
+        })
+    )
+
+    return enriched
+}
+
+/* =========================================================
+   GET BY ID
+========================================================= */
+
+export async function getChecklistByIdAction(id: string) {
     try {
-
-        return await prisma.checklist.findMany({
-
+        return await prisma.checklist.findUnique({
+            where: { id },
             include: {
                 sector: true,
                 createdBy: true,
             },
-
-            orderBy: {
-                createdAt: "desc",
-            },
         })
-
     } catch (error) {
-
         console.log(error)
-
-        return []
+        return null
     }
 }
 
-export async function updateChecklistAction(
-    data: unknown
-) {
+/* =========================================================
+   UPDATE
+========================================================= */
 
-    const parsed =
-        updateChecklistSchema.safeParse(data)
+export async function updateChecklistAction(data: unknown) {
+    const parsed = updateChecklistSchema.safeParse(data)
 
     if (!parsed.success) {
-
         return {
             success: false,
             message: "Dados inválidos",
@@ -91,18 +146,13 @@ export async function updateChecklistAction(
     }
 
     try {
-
-        await updateChecklistService(
-            parsed.data
-        )
+        await updateChecklistService(parsed.data)
 
         return {
             success: true,
             message: "Checklist atualizado",
         }
-
     } catch (error) {
-
         return {
             success: false,
             message:
@@ -113,23 +163,19 @@ export async function updateChecklistAction(
     }
 }
 
-export async function deleteChecklistAction(
-    checklistId: string
-) {
+/* =========================================================
+   DELETE
+========================================================= */
 
+export async function deleteChecklistAction(checklistId: string) {
     try {
-
-        await deleteChecklistService(
-            checklistId
-        )
+        await deleteChecklistService(checklistId)
 
         return {
             success: true,
             message: "Checklist removido",
         }
-
     } catch (error) {
-
         return {
             success: false,
             message:

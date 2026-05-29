@@ -16,6 +16,10 @@ import {
     zodResolver,
 } from "@hookform/resolvers/zod"
 
+import {
+    useSession,
+} from "next-auth/react"
+
 import { toast } from "sonner"
 
 import {
@@ -31,12 +35,30 @@ import {
     getSectorsAction,
 } from "@/app/(dashboard)/setores/actions"
 
+import {
+    getUsersAction,
+} from "@/app/(dashboard)/usuarios/actions"
+
 interface SectorData {
     id: string
     name: string
 }
 
+interface UserData {
+    id: string
+    name: string
+    role: string
+    sectorId?: string | null
+}
+
+type TargetType =
+    | "SECTOR"
+    | "USER"
+
 export function CreateChecklistModal() {
+
+    const { data: session } =
+        useSession()
 
     const [
         open,
@@ -49,14 +71,31 @@ export function CreateChecklistModal() {
     ] = useState<SectorData[]>([])
 
     const [
+        users,
+        setUsers,
+    ] = useState<UserData[]>([])
+
+    const [
+        targetType,
+        setTargetType,
+    ] = useState<TargetType>("SECTOR")
+
+    const [
         isPending,
         startTransition,
     ] = useTransition()
+
+    const userRole =
+        session?.user?.role
+
+    const userSectorId =
+        session?.user?.sectorId
 
     const {
         register,
         handleSubmit,
         reset,
+        setValue,
         formState: {
             errors,
         },
@@ -65,22 +104,115 @@ export function CreateChecklistModal() {
             zodResolver(
                 createChecklistSchema
             ),
+
+        defaultValues: {
+            sectorId: "",
+            assignedUserId: "",
+        },
     })
 
     useEffect(() => {
 
-        async function loadSectors() {
+        async function loadData() {
 
             try {
 
-                const response =
+                const sectorsResponse =
                     await getSectorsAction()
 
-                setSectors(response)
+                const usersResponse =
+                    await getUsersAction()
+
+                // ADMIN
+
+                if (
+                    userRole === "ADMIN"
+                ) {
+
+                    setSectors(
+                        sectorsResponse
+                    )
+
+                    setUsers(
+                        usersResponse
+                    )
+
+                    return
+                }
+
+                // SUPERVISOR
+
+                if (
+                    userRole ===
+                    "SUPERVISOR"
+                ) {
+
+                    const filteredSectors =
+                        sectorsResponse.filter(
+                            (
+                                sector: SectorData
+                            ) =>
+                                sector.id ===
+                                userSectorId
+                        )
+
+                    const filteredUsers =
+                        usersResponse.filter(
+                            (
+                                user: UserData
+                            ) =>
+                                user.sectorId ===
+                                userSectorId
+                        )
+
+                    setSectors(
+                        filteredSectors
+                    )
+
+                    setUsers(
+                        filteredUsers
+                    )
+
+                    return
+                }
+
+                // EMPLOYEE
+
+                if (
+                    userRole ===
+                    "EMPLOYEE"
+                ) {
+
+                    setTargetType("USER")
+
+                    setValue(
+                        "assignedUserId",
+                        session?.user?.id || ""
+                    )
+
+                    const currentUser =
+                        usersResponse.filter(
+                            (
+                                user: UserData
+                            ) =>
+                                user.id ===
+                                session?.user?.id
+                        )
+
+                    setUsers(
+                        currentUser
+                    )
+
+                    setSectors([])
+                }
 
             } catch (error) {
 
                 console.log(error)
+
+                toast.error(
+                    "Erro ao carregar dados"
+                )
             }
         }
 
@@ -89,7 +221,7 @@ export function CreateChecklistModal() {
             document.body.style.overflow =
                 "hidden"
 
-            loadSectors()
+            loadData()
 
         } else {
 
@@ -103,11 +235,44 @@ export function CreateChecklistModal() {
                 "auto"
         }
 
-    }, [open])
+    }, [
+        open,
+        session,
+        userRole,
+        userSectorId,
+        setValue,
+    ])
 
     async function onSubmit(
         data: CreateChecklistData
     ) {
+
+        // LIMPA CAMPO NÃO UTILIZADO
+
+        if (
+            targetType === "SECTOR"
+        ) {
+
+            data.assignedUserId =
+                undefined
+
+        } else {
+
+            data.sectorId =
+                undefined
+        }
+
+        // EMPLOYEE SEMPRE CRIA
+        // PARA ELE MESMO
+
+        if (
+            userRole ===
+            "EMPLOYEE"
+        ) {
+
+            data.assignedUserId =
+                session?.user?.id || ""
+        }
 
         startTransition(async () => {
 
@@ -168,41 +333,36 @@ export function CreateChecklistModal() {
                         bg-black/60
                         backdrop-blur-sm
                         flex
-                        items-end
-                        sm:items-center
+                        items-center
                         justify-center
-                        p-0
-                        sm:p-4
+                        p-4
                     ">
+
                         <div className="
                             w-full
-                            sm:max-w-xl
+                            max-w-xl
                             bg-background
-                            rounded-t-[32px]
-                            sm:rounded-3xl
-                            shadow-2xl
+                            rounded-3xl
                             border
                             border-border
-                            max-h-[95vh]
-                            overflow-y-auto
+                            shadow-2xl
+                            overflow-hidden
                         ">
+
                             {/* HEADER */}
 
                             <div className="
-                                sticky
-                                top-0
-                                bg-background
+                                px-6
+                                py-5
                                 border-b
                                 border-border
-                                px-5
-                                sm:px-8
-                                py-5
                                 flex
-                                items-start
+                                items-center
                                 justify-between
-                                gap-4
                             ">
+
                                 <div>
+
                                     <h2 className="
                                         text-2xl
                                         font-black
@@ -215,11 +375,14 @@ export function CreateChecklistModal() {
                                         text-muted-foreground
                                         mt-1
                                     ">
-                                        Crie um checklist corporativo
+                                        Configure o
+                                        destino do checklist
                                     </p>
+
                                 </div>
 
                                 <button
+                                    type="button"
                                     onClick={() =>
                                         setOpen(false)
                                     }
@@ -238,6 +401,7 @@ export function CreateChecklistModal() {
                                 >
                                     <X size={18} />
                                 </button>
+
                             </div>
 
                             {/* FORM */}
@@ -249,19 +413,95 @@ export function CreateChecklistModal() {
                                     )
                                 }
                                 className="
-                                    p-5
-                                    sm:p-8
+                                    p-6
                                     flex
                                     flex-col
-                                    gap-4
+                                    gap-5
                                 "
                             >
+
+                                {/* TIPO */}
+
+                                {
+                                    userRole !==
+                                    "EMPLOYEE" && (
+                                        <div className="
+                                            grid
+                                            grid-cols-2
+                                            gap-3
+                                        ">
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+
+                                                    setTargetType(
+                                                        "SECTOR"
+                                                    )
+
+                                                    setValue(
+                                                        "assignedUserId",
+                                                        ""
+                                                    )
+                                                }}
+                                                className={`
+                                                    h-14
+                                                    rounded-2xl
+                                                    border
+                                                    text-sm
+                                                    font-semibold
+                                                    transition
+                                                    ${targetType === "SECTOR"
+                                                        ? "border-primary bg-primary/10"
+                                                        : "border-border"
+                                                    }
+                                                `}
+                                            >
+                                                Por setor
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+
+                                                    setTargetType(
+                                                        "USER"
+                                                    )
+
+                                                    setValue(
+                                                        "sectorId",
+                                                        ""
+                                                    )
+                                                }}
+                                                className={`
+                                                    h-14
+                                                    rounded-2xl
+                                                    border
+                                                    text-sm
+                                                    font-semibold
+                                                    transition
+                                                    ${targetType === "USER"
+                                                        ? "border-primary bg-primary/10"
+                                                        : "border-border"
+                                                    }
+                                                `}
+                                            >
+                                                Individual
+                                            </button>
+
+                                        </div>
+                                    )
+                                }
+
                                 {/* TITLE */}
 
                                 <div>
+
                                     <input
                                         placeholder="Título"
-                                        {...register("title")}
+                                        {...register(
+                                            "title"
+                                        )}
                                         className="
                                             w-full
                                             h-12
@@ -287,11 +527,13 @@ export function CreateChecklistModal() {
                                             </span>
                                         )
                                     }
+
                                 </div>
 
                                 {/* DESCRIPTION */}
 
                                 <div>
+
                                     <textarea
                                         placeholder="Descrição"
                                         {...register(
@@ -308,11 +550,13 @@ export function CreateChecklistModal() {
                                             resize-none
                                         "
                                     />
+
                                 </div>
 
                                 {/* FREQUENCY */}
 
                                 <div>
+
                                     <select
                                         {...register(
                                             "frequency"
@@ -327,6 +571,7 @@ export function CreateChecklistModal() {
                                             bg-background
                                         "
                                     >
+
                                         <option value="">
                                             Frequência
                                         </option>
@@ -342,52 +587,197 @@ export function CreateChecklistModal() {
                                         <option value="MONTHLY">
                                             Mensal
                                         </option>
+
                                     </select>
+
+                                    {
+                                        errors.frequency && (
+                                            <span className="
+                                                text-sm
+                                                text-destructive
+                                            ">
+                                                {
+                                                    errors
+                                                        .frequency
+                                                        .message
+                                                }
+                                            </span>
+                                        )
+                                    }
+
                                 </div>
 
-                                {/* SECTOR */}
+                                {/* SETOR */}
 
-                                <div>
-                                    <select
-                                        {...register(
-                                            "sectorId"
-                                        )}
-                                        className="
-                                            w-full
-                                            h-12
-                                            px-4
+                                {
+                                    targetType ===
+                                    "SECTOR" && (
+                                        <div>
+
+                                            <select
+                                                {...register(
+                                                    "sectorId"
+                                                )}
+                                                className="
+                                                    w-full
+                                                    h-12
+                                                    px-4
+                                                    rounded-2xl
+                                                    border
+                                                    border-border
+                                                    bg-background
+                                                "
+                                            >
+
+                                                <option value="">
+                                                    Selecione o setor
+                                                </option>
+
+                                                {
+                                                    sectors.map(
+                                                        (
+                                                            sector
+                                                        ) => (
+                                                            <option
+                                                                key={
+                                                                    sector.id
+                                                                }
+                                                                value={
+                                                                    sector.id
+                                                                }
+                                                            >
+                                                                {
+                                                                    sector.name
+                                                                }
+                                                            </option>
+                                                        )
+                                                    )
+                                                }
+
+                                            </select>
+
+                                        </div>
+                                    )
+                                }
+
+                                {/* USER */}
+
+                                {
+                                    targetType ===
+                                    "USER" &&
+                                    userRole !==
+                                    "EMPLOYEE" && (
+                                        <div>
+
+                                            <select
+                                                {...register(
+                                                    "assignedUserId"
+                                                )}
+                                                className="
+                                                    w-full
+                                                    h-12
+                                                    px-4
+                                                    rounded-2xl
+                                                    border
+                                                    border-border
+                                                    bg-background
+                                                "
+                                            >
+
+                                                <option value="">
+                                                    Selecione o usuário
+                                                </option>
+
+                                                {
+                                                    users.map(
+                                                        (
+                                                            user
+                                                        ) => (
+                                                            <option
+                                                                key={
+                                                                    user.id
+                                                                }
+                                                                value={
+                                                                    user.id
+                                                                }
+                                                            >
+                                                                {
+                                                                    user.name
+                                                                }
+                                                            </option>
+                                                        )
+                                                    )
+                                                }
+
+                                            </select>
+
+                                        </div>
+                                    )
+                                }
+
+                                {/* EMPLOYEE INFO */}
+
+                                {
+                                    userRole ===
+                                    "EMPLOYEE" && (
+                                        <div className="
                                             rounded-2xl
                                             border
-                                            border-border
-                                            bg-background
-                                        "
-                                    >
-                                        <option value="">
-                                            Selecione um setor
-                                        </option>
+                                            border-primary/20
+                                            bg-primary/5
+                                            p-4
+                                            text-sm
+                                        ">
+                                            Este checklist
+                                            será criado
+                                            automaticamente
+                                            para você.
+                                        </div>
+                                    )
+                                }
 
-                                        {
-                                            sectors.map(
-                                                (
-                                                    sector
-                                                ) => (
-                                                    <option
-                                                        key={
-                                                            sector.id
-                                                        }
-                                                        value={
-                                                            sector.id
-                                                        }
-                                                    >
-                                                        {
-                                                            sector.name
-                                                        }
-                                                    </option>
-                                                )
-                                            )
-                                        }
-                                    </select>
-                                </div>
+                                {/* INFO */}
+
+                                {
+                                    targetType ===
+                                    "SECTOR" && (
+                                        <div className="
+                                            text-xs
+                                            text-muted-foreground
+                                            bg-muted
+                                            rounded-2xl
+                                            p-3
+                                        ">
+                                            O checklist será
+                                            compartilhado para
+                                            todos os usuários
+                                            do setor.
+                                        </div>
+                                    )
+                                }
+
+                                {/* ERROS */}
+
+                                {
+                                    (
+                                        errors.sectorId ||
+                                        errors.assignedUserId
+                                    ) && (
+                                        <span className="
+                                            text-sm
+                                            text-destructive
+                                        ">
+                                            {
+                                                errors
+                                                    .sectorId
+                                                    ?.message ||
+                                                errors
+                                                    .assignedUserId
+                                                    ?.message
+                                            }
+                                        </span>
+                                    )
+                                }
 
                                 {/* BUTTON */}
 
@@ -404,16 +794,22 @@ export function CreateChecklistModal() {
                                         mt-2
                                         hover:opacity-90
                                         transition
+                                        disabled:opacity-50
                                     "
                                 >
+
                                     {
                                         isPending
                                             ? "Criando..."
                                             : "Criar checklist"
                                     }
+
                                 </button>
+
                             </form>
+
                         </div>
+
                     </div>
                 )
             }

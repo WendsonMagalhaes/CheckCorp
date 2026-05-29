@@ -5,7 +5,80 @@ export const createChecklistSchema =
 
         title: z
             .string()
-            .min(3, "Título obrigatório"),
+            .min(
+                3,
+                "Título obrigatório"
+            ),
+
+        description: z
+            .string()
+            .optional(),
+
+        frequency: z.enum([
+            "DAILY",
+            "WEEKLY",
+            "MONTHLY",
+        ]),
+
+        // CHECKLIST POR SETOR
+        sectorId: z
+            .string()
+            .optional(),
+
+        // CHECKLIST INDIVIDUAL
+        assignedUserId: z
+            .string()
+            .optional(),
+    })
+
+        // OBRIGA TER UM DESTINO
+        .refine(
+
+            (data) =>
+                !!data.sectorId ||
+                !!data.assignedUserId,
+
+            {
+                message:
+                    "Selecione um setor ou usuário",
+
+                path: ["sectorId"],
+            }
+        )
+
+        // NÃO PODE TER OS DOIS
+        .refine(
+
+            (data) =>
+                !(
+                    data.sectorId &&
+                    data.assignedUserId
+                ),
+
+            {
+                message:
+                    "Selecione apenas um destino",
+
+                path: ["assignedUserId"],
+            }
+        )
+
+export type CreateChecklistData =
+    z.infer<
+        typeof createChecklistSchema
+    >
+
+export const updateChecklistSchema =
+    z.object({
+
+        id: z.string(),
+
+        title: z
+            .string()
+            .min(
+                3,
+                "Título obrigatório"
+            ),
 
         description: z
             .string()
@@ -19,37 +92,48 @@ export const createChecklistSchema =
 
         sectorId: z
             .string()
-            .min(1, "Setor obrigatório"),
-    })
-
-export type CreateChecklistData =
-    z.infer<typeof createChecklistSchema>
-
-export const updateChecklistSchema =
-    z.object({
-
-        id: z.string(),
-
-        title: z
-            .string()
-            .min(3, "Título obrigatório"),
-
-        description: z
-            .string()
             .optional(),
 
-        frequency: z.enum([
-            "DAILY",
-            "WEEKLY",
-            "MONTHLY",
-        ]),
-
-        sectorId: z.string(),
+        assignedUserId: z
+            .string()
+            .optional(),
 
         active: z.boolean(),
     })
 
+        // OBRIGA DESTINO
+        .refine(
+
+            (data) =>
+                !!data.sectorId ||
+                !!data.assignedUserId,
+
+            {
+                message:
+                    "Selecione um setor ou usuário",
+
+                path: ["sectorId"],
+            }
+        )
+
+        // NÃO PODE OS DOIS
+        .refine(
+
+            (data) =>
+                !(
+                    data.sectorId &&
+                    data.assignedUserId
+                ),
+
+            {
+                message:
+                    "Selecione apenas um destino",
+
+                path: ["assignedUserId"],
+            }
+        )
+
 export type UpdateChecklistData =
-    z.infer<typeof updateChecklistSchema>
-
-
+    z.infer<
+        typeof updateChecklistSchema
+    >
